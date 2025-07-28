@@ -2,6 +2,7 @@ import * as bitcoin from 'bitcoinjs-lib';
 import axios from 'axios';
 import Wallet from './wallet';
 import BitcoinClient from './client';
+import { getHash } from './utils';
 
 const NETWORK = bitcoin.networks.regtest
 
@@ -12,6 +13,7 @@ const wallet1 = new Wallet("wallet1", NETWORK, client)
 
 
 const secret = "hello"
+const secretHash = getHash(secret)
 const lockTime = 114
 const amount = 100000
 
@@ -24,11 +26,11 @@ console.log(address)
 const wallet1_pkh = Wallet.getPublicKeyHash(NETWORK, wallet1.getAddress())
 
 
-//wallet.deployHashlockScript(wallet1_pkh, secret, lockTime, amount)
+//wallet.deployHashlockScript(wallet1_pkh, secretHash, lockTime, amount)
 
 
-//client.getBalance('bcrt1qjqrgmvmmgsf7kqkt2vzw7whxy6sut38r380ddy7xfcv3x0zn0s6sk8vhkg')
-wallet1.spendHashlockWithSecret('2f42e6b5f3952515b38dcf68c0d227f9cac42380146941fa5b4833d709221d0f', 0, wallet1.getAddress(), secret, lockTime, amount, wallet1_pkh)
+//client.getBalance('bcrt1qpwte9teulj839pm4hrt075fvsk956wr73s6duv7j8rawzsj9fqksxc95df')
+wallet1.spendHashlockWithSecret('00d0ece078b51b5534d9376b9ad3e6a4664ef5bb725bce30e727b48dbbcd4f44', 0, wallet1.getAddress(), secret, lockTime, amount, wallet1_pkh)
 
 //client.getBalance(wallet1.getAddress())
 
