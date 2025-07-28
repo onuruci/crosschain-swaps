@@ -1,0 +1,8 @@
+{
+  "contractAddress": "0x5a901138b890f9aa4da23d2742c79974ea3cafef130589dc867adc09bd690b5a::AtomicSwap",
+  "deployerAddress": "0x5a901138b890f9aa4da23d2742c79974ea3cafef130589dc867adc09bd690b5a",
+  "network": "testnet",
+  "deployedAt": "2025-07-19T17:51:00.000Z",
+  "status": "deployed",
+  "note": "Contract was successfully deployed using Aptos CLI. The Move compiler had issues but deployment succeeded."
+} 

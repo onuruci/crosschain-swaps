@@ -1,0 +1,10 @@
+{
+  "contractAddress": "0x5a901138b890f9aa4da23d2742c79974ea3cafef130589dc867adc09bd690b5a::AtomicSwapV2",
+  "deploymentTx": "0xf0bf23a6db09153033bb108b7909621b51aabc71b73706f1b8043e3d19f316e0",
+  "initTx": "0xa5927d3e37ef22855a2ccc8e143f3fb16c7806cd75d74bee3f54162567c63aa0",
+  "deployedAt": "2025-07-19T15:23:16.036Z",
+  "network": "testnet",
+  "account": "0x5a901138b890f9aa4da23d2742c79974ea3cafef130589dc867adc09bd690b5a",
+  "moduleName": "AtomicSwapV2",
+  "packageName": "atomic_swap_new"
+} 

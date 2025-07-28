@@ -1,0 +1,20 @@
+---
+profiles:
+  default:
+    network: Testnet
+    private_key: ed25519-priv-0x928a719354fe6c9f32720be63b84597bfeb623c2504f880cc89d5bef6729b497
+    public_key: ed25519-pub-0xf48886d12416e8172dff82ff8b57e0c8b657fdd3816e2722d6440c1d13e6f950
+    account: c8f8c85df1dfae56489f75981ef10d5f86681015aeb4306ac84128f4e03dffcf
+    rest_url: "https://fullnode.testnet.aptoslabs.com"
+  relayer:
+    network: Testnet
+    private_key: ed25519-priv-0x95b88d60197749c527a0961b2e443fdd3dd5844eace4353874e017ccfd633530
+    public_key: ed25519-pub-0x8b03736fac5467889f072a8c485800b03fd9aab439968011a753442c7dd9c12c
+    account: 5a901138b890f9aa4da23d2742c79974ea3cafef130589dc867adc09bd690b5a
+    rest_url: "https://fullnode.testnet.aptoslabs.com"
+  testnet:
+    network: Testnet
+    private_key: ed25519-priv-0x95b88d60197749c527a0961b2e443fdd3dd5844eace4353874e017ccfd633530
+    public_key: ed25519-pub-0x8b03736fac5467889f072a8c485800b03fd9aab439968011a753442c7dd9c12c
+    account: 5a901138b890f9aa4da23d2742c79974ea3cafef130589dc867adc09bd690b5a
+    rest_url: "https://fullnode.testnet.aptoslabs.com"

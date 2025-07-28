@@ -1,0 +1,12 @@
+[package]
+name = "atomic_swap_new"
+version = "1.0.0"
+upgrade_policy = "compatible"
+
+[dependencies]
+AptosFramework = { git = "https://github.com/aptos-labs/aptos-framework.git", subdir = "aptos-framework", rev = "mainnet" }
+
+[addresses]
+AtomicSwapNew = "0x5a901138b890f9aa4da23d2742c79974ea3cafef130589dc867adc09bd690b5a"
+
+[dev-dependencies]
