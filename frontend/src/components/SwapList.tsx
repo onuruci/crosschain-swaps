@@ -35,7 +35,7 @@ const SwapList: React.FC<SwapListProps> = ({ walletConnection }) => {
   const [showSecretInputs, setShowSecretInputs] = useState<{ [key: string]: boolean }>({});
 
   const { data: swapsData, isLoading, refetch, error } = useGetSwapsQuery(undefined, {
-    pollingInterval: 10000, // Poll every 5 seconds
+    pollingInterval: 30000, // Poll every 30 seconds
     refetchOnMountOrArgChange: true, // Ensure it refetches on mount
   });
   const pendingSwaps = swapsData?.pending || [];
@@ -66,6 +66,7 @@ const SwapList: React.FC<SwapListProps> = ({ walletConnection }) => {
     try {
       const targetChain = swap.fromChain;
       
+      // Wallet connection checks
       if (targetChain === 'ethereum' && !walletConnection.ethereum.connected) {
         toast.error('Please connect your Ethereum wallet to complete this swap');
         return;
@@ -75,25 +76,133 @@ const SwapList: React.FC<SwapListProps> = ({ walletConnection }) => {
         return;
       }
 
+      // Pre-completion validation checks
       if (targetChain === 'ethereum') {
+        const contract = ethereumService.contract;
+        if (!contract) {
+          toast.error('Ethereum contract not available');
+          return;
+        }
+
+        console.log('🔍 Pre-completion validation for hashlock:', swap.hashlock.substring(0, 16) + '...');
+
+        // Check if swap exists
+        try {
+          const swapData = await contract.getSwap(swap.hashlock);
+          if (!swapData || swapData[0] === '0x0000000000000000000000000000000000000000') {
+            toast.error('Swap not found with this hashlock');
+            return;
+          }
+          console.log('✅ Swap exists:', swapData);
+        } catch (error) {
+          console.error('Error checking swap existence:', error);
+          toast.error('Failed to verify swap exists');
+          return;
+        }
+
+        // Check if already completed
+        try {
+          const canComplete = await contract.canComplete(swap.hashlock);
+          if (!canComplete) {
+            toast.error('Swap cannot be completed (may already be completed or refunded)');
+            return;
+          }
+          console.log('✅ Swap can be completed');
+        } catch (error) {
+          console.error('Error checking completion status:', error);
+          toast.error('Failed to verify completion eligibility');
+          return;
+        }
+
+        // Check if already refunded
+        try {
+          const canRefund = await contract.canRefund(swap.hashlock);
+          if (canRefund) {
+            toast.error('Swap can be refunded. Cannot complete a refundable swap.');
+            return;
+          }
+          console.log('✅ Swap cannot be refunded (good for completion)');
+        } catch (error) {
+          console.error('Error checking refund status:', error);
+        }
+
+        // Validate secret format
+        if (!secret.startsWith('0x') || secret.length !== 66) {
+          toast.error('Invalid secret format. Should be 0x followed by 64 hex characters');
+          return;
+        }
+
+        // All checks passed, proceed with completion
+        console.log('🚀 All pre-completion checks passed, proceeding with completion...');
         try {
           await ethereumService.completeSwap(swap.hashlock, secret);
         } catch (error) {
           if (error instanceof Error && error.message.includes('InvalidRecipient')) {
+            console.log('🔄 Trying completeSwapAsInitiator...');
             await ethereumService.completeSwapAsInitiator(swap.hashlock, secret);
           } else {
             throw error;
           }
         }
       } else {
-        await aptosService.completeSwap(swap.initiator, swap.hashlock, secret);
+        // Aptos completion with validation
+        try {
+          const swapData = await aptosService.getSwap(swap.hashlock);
+          if (!swapData || swapData.initiator === '0x0') {
+            toast.error('Swap not found with this hashlock');
+            return;
+          }
+
+          if (swapData.completed) {
+            toast.error('Swap is already completed');
+            return;
+          }
+
+          if (swapData.refunded) {
+            toast.error('Swap is already refunded');
+            return;
+          }
+
+          // Validate secret format
+          if (!secret.startsWith('0x') || secret.length !== 66) {
+            toast.error('Invalid secret format. Should be 0x followed by 64 hex characters');
+            return;
+          }
+
+          console.log('🚀 All Aptos pre-completion checks passed, proceeding with completion...');
+          await aptosService.completeSwap(swap.initiator, swap.hashlock, secret);
+        } catch (error) {
+          console.error('Error validating Aptos swap:', error);
+          toast.error('Failed to validate swap before completion');
+          return;
+        }
       }
 
       toast.success('Swap completed successfully!');
       refetch();
     } catch (error) {
       console.error('Failed to complete swap:', error);
-      toast.error('Failed to complete swap: ' + (error as Error).message);
+      
+      // Enhanced error handling for custom contract errors
+      if (error instanceof Error) {
+        if (error.message.includes('0x621e25c3')) {
+          toast.error('Swap completion failed: Invalid completion conditions (swap may not exist, already completed, or invalid secret)');
+        } else if (error.message.includes('user rejected')) {
+          toast.error('Transaction was rejected by user');
+        } else if (error.message.includes('SwapNotFound')) {
+          toast.error('Swap not found with this hashlock');
+        } else if (error.message.includes('SwapAlreadyCompleted')) {
+          toast.error('Swap is already completed');
+        } else if (error.message.includes('InvalidSecret')) {
+          toast.error('Invalid secret provided');
+        } else if (error.message.includes('InvalidRecipient')) {
+          toast.error('Invalid recipient for completion');
+        } else {
+          toast.error('Failed to complete swap: ' + error.message);
+        }
+      } else {
+        toast.error('Failed to complete swap: Unknown error');
+      }
     } finally {
       setLoading(false);
     }
@@ -136,6 +245,7 @@ const SwapList: React.FC<SwapListProps> = ({ walletConnection }) => {
   const refundSwap = async (swap: SwapStatus) => {
     setLoading(true);
     try {
+      // Wallet connection checks
       if (swap.fromChain === 'ethereum' && !walletConnection.ethereum.connected) {
         toast.error('Please connect your Ethereum wallet to refund this swap');
         return;
@@ -145,17 +255,120 @@ const SwapList: React.FC<SwapListProps> = ({ walletConnection }) => {
         return;
       }
 
+      // Pre-refund validation checks
       if (swap.fromChain === 'ethereum') {
+        const contract = ethereumService.contract;
+        if (!contract) {
+          toast.error('Ethereum contract not available');
+          return;
+        }
+
+        console.log('🔍 Pre-refund validation for hashlock:', swap.hashlock.substring(0, 16) + '...');
+
+        // Check if swap exists
+        try {
+          const swapData = await contract.getSwap(swap.hashlock);
+          if (!swapData || swapData[0] === '0x0000000000000000000000000000000000000000') {
+            toast.error('Swap not found with this hashlock');
+            return;
+          }
+          console.log('✅ Swap exists:', swapData);
+        } catch (error) {
+          console.error('Error checking swap existence:', error);
+          toast.error('Failed to verify swap exists');
+          return;
+        }
+
+        try {
+          const currentTime = Math.floor(Date.now() / 1000);
+          const swapData = await contract.getSwap(swap.hashlock);
+          const timelock = typeof swapData[4] === 'object' && swapData[4].toNumber ? 
+            swapData[4].toNumber() : Number(swapData[4]);
+          
+          console.log('⏰ Timelock check:', {
+            currentTime,
+            timelock,
+            timeRemaining: timelock - currentTime,
+            isExpired: currentTime >= timelock
+          });
+
+          if (currentTime < timelock) {
+            const remainingHours = Math.floor((timelock - currentTime) / 3600);
+            const remainingMinutes = Math.floor(((timelock - currentTime) % 3600) / 60);
+            toast.error(`Timelock not expired yet. Wait ${remainingHours}h ${remainingMinutes}m more.`);
+            return;
+          }
+          console.log('✅ Timelock has expired');
+        } catch (error) {
+          console.error('Error checking timelock:', error);
+          toast.error('Failed to verify timelock status');
+          return;
+        }
+
+        // All checks passed, proceed with refund
+        console.log('🚀 All pre-refund checks passed, proceeding with refund...');
         await ethereumService.refundSwap(swap.hashlock);
       } else {
-        await aptosService.refundSwap(swap.hashlock);
+        // Aptos refund with validation
+        try {
+          const swapData = await aptosService.getSwap(swap.hashlock);
+          if (!swapData || swapData.initiator === '0x0') {
+            toast.error('Swap not found with this hashlock');
+            return;
+          }
+
+          if (swapData.completed) {
+            toast.error('Swap is already completed');
+            return;
+          }
+
+          if (swapData.refunded) {
+            toast.error('Swap is already refunded');
+            return;
+          }
+
+          const currentTime = Math.floor(Date.now() / 1000);
+          const timelock = Number(swapData.timelock);
+          
+          if (currentTime < timelock) {
+            const remainingHours = Math.floor((timelock - currentTime) / 3600);
+            const remainingMinutes = Math.floor(((timelock - currentTime) % 3600) / 60);
+            toast.error(`Timelock not expired yet. Wait ${remainingHours}h ${remainingMinutes}m more.`);
+            return;
+          }
+
+          console.log('🚀 All Aptos pre-refund checks passed, proceeding with refund...');
+          await aptosService.refundSwap(swap.hashlock);
+        } catch (error) {
+          console.error('Error validating Aptos swap:', error);
+          toast.error('Failed to validate swap before refund');
+          return;
+        }
       }
 
       toast.success('Swap refunded successfully!');
       refetch();
     } catch (error) {
       console.error('Failed to refund swap:', error);
-      toast.error('Failed to refund swap: ' + (error as Error).message);
+      
+      // Enhanced error handling for custom contract errors
+      if (error instanceof Error) {
+        if (error.message.includes('0x621e25c3')) {
+          toast.error('Swap refund failed: Invalid refund conditions (swap may not exist, already refunded, or timelock not expired)');
+        } else if (error.message.includes('user rejected')) {
+          toast.error('Transaction was rejected by user');
+        } else if (error.message.includes('SwapNotFound')) {
+          toast.error('Swap not found with this hashlock');
+        } else if (error.message.includes('SwapAlreadyRefunded')) {
+          toast.error('Swap is already refunded');
+        } else if (error.message.includes('TimelockNotExpired')) {
+          toast.error('Timelock has not expired yet');
+        } else {
+          toast.error('Failed to refund swap: ' + error.message);
+        }
+      } else {
+        toast.error('Failed to refund swap: Unknown error');
+      }
     } finally {
       setLoading(false);
     }

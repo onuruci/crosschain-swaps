@@ -16,7 +16,6 @@ export interface ResolverSwapRequest {
   toToken: string;
   inputAmount: string;
   outputAmount: string;
-  recipient: string;
   timelock: number;
 }
 

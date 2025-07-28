@@ -2,6 +2,7 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { ethereumService } from '../services/ethereum';
 import { aptosService } from '../services/aptos';
 import { SwapStatus } from '../types';
+import { config } from '../config';
 
 // Helper function to get all swaps from Ethereum
 const getEthereumSwaps = async (): Promise<SwapStatus[]> => {
@@ -39,42 +40,94 @@ const getEthereumSwaps = async (): Promise<SwapStatus[]> => {
           const hashlock = event.args.hashlock;
           if (!hashlock) continue;
 
-                  const swapData = await contract.getSwap(hashlock);
-        if (!swapData) continue;
+          const swapData = await contract.getSwap(hashlock);
+          if (!swapData) continue;
 
-        console.log('📋 Swap data from contract:', {
-          hashlock: hashlock.substring(0, 16) + '...',
-          swapData: swapData,
-          timelockType: typeof swapData[4],
-          timelockValue: swapData[4]
-        });
+          console.log('📋 Swap data from contract:', {
+            hashlock: hashlock.substring(0, 16) + '...',
+            swapData: swapData,
+            timelockType: typeof swapData[4],
+            timelockValue: swapData[4]
+          });
 
-        const [initiator, recipient, , amount, timelock, completed, refunded] = swapData;
+          const [initiator, recipient, , amount, timelock, completed, refunded] = swapData;
 
-        swaps.push({
-          hashlock: hashlock,
-          initiator: initiator,
-          recipient: recipient,
-          amount: amount.toString(),
-          timelock: typeof timelock === 'object' && timelock.toNumber ? timelock.toNumber() : Number(timelock),
-          completed: completed,
-          refunded: refunded,
-          fromChain: 'ethereum',
-          toChain: 'aptos',
-          createdAt: Math.floor(Date.now() / 1000), // Approximate
-          secret: undefined
-        });
+          swaps.push({
+            hashlock: hashlock,
+            initiator: initiator,
+            recipient: recipient,
+            amount: amount.toString(),
+            timelock: typeof timelock === 'object' && timelock.toNumber ? timelock.toNumber() : Number(timelock),
+            completed: completed,
+            refunded: refunded,
+            fromChain: 'ethereum',
+            toChain: 'aptos',
+            createdAt: Math.floor(Date.now() / 1000), // Approximate
+            secret: undefined
+          });
         }
-              } catch (error) {
-          console.error('Error processing Ethereum swap event:', error);
+      } catch (error) {
+        console.error('Error processing Ethereum swap event:', error);
+      }
+    }
+
+    // Also check for completed and refunded events
+    try {
+      console.log('📡 Fetching Ethereum completed and refunded events...');
+      
+      const completedEvents = await contract.queryFilter(
+        contract.filters.SwapCompleted(),
+        fromBlock,
+        currentBlock
+      );
+
+      const refundedEvents = await contract.queryFilter(
+        contract.filters.SwapRefunded(),
+        fromBlock,
+        currentBlock
+      );
+
+      console.log(`📡 Found ${completedEvents.length} Ethereum SwapCompleted events`);
+      console.log(`📡 Found ${refundedEvents.length} Ethereum SwapRefunded events`);
+
+      // Update swap statuses based on completed/refunded events
+      for (const event of [...completedEvents, ...refundedEvents]) {
+        try {
+          if ('args' in event && event.args && typeof event.args === 'object' && 'hashlock' in event.args) {
+            const hashlock = event.args.hashlock as string;
+            if (!hashlock) continue;
+
+            const existingSwap = swaps.find(s => s.hashlock === hashlock);
+            if (existingSwap) {
+              // Check if this event is from completedEvents or refundedEvents arrays
+              const isCompletedEvent = completedEvents.includes(event);
+              const isRefundedEvent = refundedEvents.includes(event);
+              
+              if (isCompletedEvent) {
+                existingSwap.completed = true;
+                console.log(`✅ Updated Ethereum swap ${hashlock.substring(0, 16)}... to completed`);
+              } else if (isRefundedEvent) {
+                existingSwap.refunded = true;
+                console.log(`🔄 Updated Ethereum swap ${hashlock.substring(0, 16)}... to refunded`);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error processing Ethereum completed/refunded event:', error);
         }
       }
     } catch (error) {
-      console.error('Error fetching Ethereum swaps:', error);
+      console.log('Error fetching Ethereum completed/refunded events:', (error as Error).message);
     }
 
     console.log(`📝 Ethereum swaps found: ${swaps.length}`);
     return swaps;
+  } catch (error) {
+    console.error('Error fetching Ethereum swaps:', error);
+  }
+
+  console.log(`📝 Ethereum swaps found: ${swaps.length}`);
+  return swaps;
 };
 
 // Helper function to get all swaps from Aptos
@@ -91,31 +144,68 @@ const getAptosSwaps = async (): Promise<SwapStatus[]> => {
     console.log('🔍 Fetching Aptos swaps from events...');
     
     try {
-      // Since event scanning might not work with the current SDK, let's use a robust approach
-      // that scans for swaps using known patterns and recent hashlocks
-      console.log('🔍 Using robust Aptos swap scanning...');
+      // Get recent events to find hashlocks (pure event-based approach)
+      const contractAddress = aptosService.contractAddressInstance;
+      const moduleName = aptosService.moduleNameInstance;
       
-      // Get hashlocks from localStorage (from recent swaps)
-      const keys = Object.keys(localStorage);
-      const hashlockKeys = keys.filter(key => key.startsWith('swap_secret_'));
-      const knownHashlocks = hashlockKeys.map(key => key.replace('swap_secret_', ''));
+      console.log('📡 Fetching Aptos events from contract:', `${contractAddress}::${moduleName}`);
       
-      console.log(`🔍 Found ${knownHashlocks.length} hashlocks in localStorage`);
-      
-      // Scan for swaps using known hashlocks
-      for (const hashlock of knownHashlocks) {
-        try {
-          const swapData = await aptosService.getSwap(hashlock);
-          if (swapData && swapData.initiator !== '0x0') {
-            console.log('📋 Found swap data for known hashlock:', hashlock.substring(0, 16) + '...', swapData);
-            
+      // Get SwapInitiated events using the correct Aptos SDK method
+      try {
+        console.log('📡 Fetching Aptos events using SDK...');
+        
+        // Use the Aptos SDK event methods to get events from the contract
+        const eventType = `${contractAddress}::${moduleName}::SwapInitiatedEvent` as const;
+        
+        // Get events by event type using the SDK
+        const events = await aptos.event.getModuleEventsByEventType({
+          eventType: eventType,
+          options: {
+            limit: 100
+          }
+        });
+
+        console.log(`📡 Found ${events.length} Aptos SwapInitiated events`);
+
+        // Process each event to get the hashlock and fetch swap details
+        for (const event of events) {
+          try {
+            // Extract hashlock from event data
+            let hashlock: string;
+            if (typeof event.data.hashlock === 'string') {
+              hashlock = event.data.hashlock;
+            } else if (Array.isArray(event.data.hashlock)) {
+              // Convert byte array to hex string
+              hashlock = '0x' + Buffer.from(event.data.hashlock).toString('hex');
+            } else {
+              console.log('Unknown hashlock format:', event.data.hashlock);
+              continue;
+            }
+
+            console.log('🔍 Processing event with hashlock:', hashlock.substring(0, 16) + '...');
+
+            // Get detailed swap information using the hashlock
+            const swapData = await aptosService.getSwap(hashlock);
+            if (!swapData) {
+              console.log(`No swap data found for hashlock: ${hashlock.substring(0, 16)}...`);
+              continue;
+            }
+
+            console.log('📋 Aptos swap data:', {
+              hashlock: hashlock.substring(0, 16) + '...',
+              initiator: event.data.initiator,
+              recipient: event.data.recipient,
+              amount: event.data.amount,
+              timelock: event.data.timelock
+            });
+
             swaps.push({
               hashlock: hashlock,
-              initiator: swapData.initiator,
-              recipient: swapData.recipient,
-              amount: swapData.amount?.toString() || '0',
-              timelock: typeof swapData.timelock === 'object' && swapData.timelock.toNumber ? 
-                swapData.timelock.toNumber() : Number(swapData.timelock || 0),
+              initiator: event.data.initiator,
+              recipient: event.data.recipient,
+              amount: event.data.amount.toString(),
+              timelock: typeof event.data.timelock === 'object' && event.data.timelock.toNumber ? 
+                event.data.timelock.toNumber() : Number(event.data.timelock),
               completed: swapData.completed || false,
               refunded: swapData.refunded || false,
               fromChain: 'aptos',
@@ -123,98 +213,64 @@ const getAptosSwaps = async (): Promise<SwapStatus[]> => {
               createdAt: Math.floor(Date.now() / 1000), // Approximate
               secret: undefined
             });
+          } catch (error) {
+            console.error('Error processing Aptos swap event:', error);
           }
-        } catch (error) {
-          console.log(`No swap data for hashlock ${hashlock.substring(0, 16)}...:`, (error as Error).message);
         }
-      }
-      
-      // Also try some common hashlocks that might exist
-      const commonHashlocks = [
-        '0x0000000000000000000000000000000000000000000000000000000000000000',
-        '0x1111111111111111111111111111111111111111111111111111111111111111',
-        '0x2222222222222222222222222222222222222222222222222222222222222222',
-        '0x3333333333333333333333333333333333333333333333333333333333333333',
-        '0x4444444444444444444444444444444444444444444444444444444444444444',
-        '0x5555555555555555555555555555555555555555555555555555555555555555'
-      ];
 
-      for (const hashlock of commonHashlocks) {
+        // Also check for completed and refunded events
         try {
-          const swapData = await aptosService.getSwap(hashlock);
-          if (swapData && swapData.initiator !== '0x0') {
-            console.log('📋 Found swap data for common hashlock:', hashlock.substring(0, 16) + '...', swapData);
-            
-            // Check if we already have this swap
+          const completedEventType = `${contractAddress}::${moduleName}::SwapCompletedEvent` as const;
+          const completedEvents = await aptos.event.getModuleEventsByEventType({
+            eventType: completedEventType,
+            options: {
+              limit: 50
+            }
+          });
+
+          const refundedEventType = `${contractAddress}::${moduleName}::SwapRefundedEvent` as const;
+          const refundedEvents = await aptos.event.getModuleEventsByEventType({
+            eventType: refundedEventType,
+            options: {
+              limit: 50
+            }
+          });
+
+          console.log(`📡 Found ${completedEvents.length} Aptos SwapCompleted events`);
+          console.log(`📡 Found ${refundedEvents.length} Aptos SwapRefunded events`);
+
+          // Update swap statuses based on completed/refunded events
+          for (const event of [...completedEvents, ...refundedEvents]) {
+            let hashlock: string;
+            if (typeof event.data.hashlock === 'string') {
+              hashlock = event.data.hashlock;
+            } else if (Array.isArray(event.data.hashlock)) {
+              hashlock = '0x' + Buffer.from(event.data.hashlock).toString('hex');
+            } else {
+              continue;
+            }
+
             const existingSwap = swaps.find(s => s.hashlock === hashlock);
-            if (!existingSwap) {
-              swaps.push({
-                hashlock: hashlock,
-                initiator: swapData.initiator,
-                recipient: swapData.recipient,
-                amount: swapData.amount?.toString() || '0',
-                timelock: typeof swapData.timelock === 'object' && swapData.timelock.toNumber ? 
-                  swapData.timelock.toNumber() : Number(swapData.timelock || 0),
-                completed: swapData.completed || false,
-                refunded: swapData.refunded || false,
-                fromChain: 'aptos',
-                toChain: 'ethereum',
-                createdAt: Math.floor(Date.now() / 1000), // Approximate
-                secret: undefined
-              });
+            if (existingSwap) {
+              if (event.type.includes('SwapCompleted')) {
+                existingSwap.completed = true;
+                console.log(`✅ Updated swap ${hashlock.substring(0, 16)}... to completed`);
+              } else if (event.type.includes('SwapRefunded')) {
+                existingSwap.refunded = true;
+                console.log(`🔄 Updated swap ${hashlock.substring(0, 16)}... to refunded`);
+              }
             }
           }
         } catch (error) {
-          // Expected for most common hashlocks
+          console.log('Error fetching completed/refunded events:', (error as Error).message);
         }
-      }
 
+      } catch (eventError) {
+        console.log('Error fetching Aptos events:', (eventError as Error).message);
+        console.log('🔄 Event-based approach failed, no swaps found');
+      }
     } catch (error) {
-      console.log('Error fetching Aptos events:', (error as Error).message);
-      
-      // Fallback: try to get swaps from known addresses
-      console.log('🔄 Trying fallback approach...');
-      try {
-        const currentAddress = await aptosService.getAddress();
-        if (currentAddress) {
-          console.log('🔍 Checking for swaps from current address:', currentAddress);
-          
-          // Try some common hashlocks that might exist
-          const testHashlocks = [
-            '0x0000000000000000000000000000000000000000000000000000000000000000',
-            '0x1111111111111111111111111111111111111111111111111111111111111111',
-            '0x2222222222222222222222222222222222222222222222222222222222222222'
-          ];
-
-          for (const testHashlock of testHashlocks) {
-            try {
-              const swapData = await aptosService.getSwap(testHashlock);
-              if (swapData && swapData.initiator !== '0x0') {
-                console.log('📋 Found swap data for test hashlock:', testHashlock.substring(0, 16) + '...', swapData);
-                
-                swaps.push({
-                  hashlock: testHashlock,
-                  initiator: swapData.initiator,
-                  recipient: swapData.recipient,
-                  amount: swapData.amount?.toString() || '0',
-                  timelock: typeof swapData.timelock === 'object' && swapData.timelock.toNumber ? 
-                    swapData.timelock.toNumber() : Number(swapData.timelock || 0),
-                  completed: swapData.completed || false,
-                  refunded: swapData.refunded || false,
-                  fromChain: 'aptos',
-                  toChain: 'ethereum',
-                  createdAt: Math.floor(Date.now() / 1000), // Approximate
-                  secret: undefined
-                });
-              }
-            } catch (error) {
-              // Expected for most test hashlocks
-            }
-          }
-        }
-      } catch (fallbackError) {
-        console.log('Fallback approach also failed:', (fallbackError as Error).message);
-      }
+      console.log('Error in Aptos swap fetching:', (error as Error).message);
     }
   } catch (error) {
     console.error('Error fetching Aptos swaps:', (error as Error).message);

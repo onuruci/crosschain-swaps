@@ -27,6 +27,7 @@ import { ethereumService } from '../services/ethereum';
 import { aptosService } from '../services/aptos';
 import { swapsApi } from '../store/swapsApi';
 import { useDispatch } from 'react-redux';
+import { config } from '../config';
 
 interface SwapFormProps {
   walletConnection: WalletConnection;
@@ -41,7 +42,6 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
     toToken: 'APT',
     inputAmount: '',
     outputAmount: '',
-    recipient: '',
     timelock: 3600 // 1 hour default
   });
   const [loading, setLoading] = useState(false);
@@ -93,31 +93,6 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
       errors.push('Please enter a valid output amount');
     }
 
-    if (!formData.recipient) {
-      errors.push('Please enter a recipient address');
-    } else {
-      // Validate recipient address format
-      if (formData.fromChain === 'ethereum') {
-        if (!formData.recipient.startsWith('0x') || formData.recipient.length !== 42) {
-          errors.push('Invalid Ethereum address format (should be 0x + 40 hex characters)');
-        } else {
-          const hexPart = formData.recipient.slice(2);
-          if (!/^[0-9a-fA-F]{40}$/.test(hexPart)) {
-            errors.push('Invalid Ethereum address: contains invalid hex characters');
-          }
-        }
-      } else if (formData.fromChain === 'aptos') {
-        if (!formData.recipient.startsWith('0x') || formData.recipient.length !== 66) {
-          errors.push('Invalid Aptos address format (should be 0x + 64 hex characters)');
-        } else {
-          const hexPart = formData.recipient.slice(2);
-          if (!/^[0-9a-fA-F]{64}$/.test(hexPart)) {
-            errors.push('Invalid Aptos address: contains invalid hex characters');
-          }
-        }
-      }
-    }
-
     // Check wallet connections
     if (formData.fromChain === 'ethereum' && !walletConnection.ethereum.connected) {
       errors.push('Please connect your Ethereum wallet first');
@@ -152,23 +127,28 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
       const currentTime = Math.floor(Date.now() / 1000);
       const timelock = currentTime + formData.timelock;
 
-      // Initiate swap on the source chain
+      // Get resolver address based on the source chain
+      const resolverAddress = formData.fromChain === 'ethereum' 
+        ? config.ethereum.resolverAddress 
+        : config.aptos.resolverAddress;
+
+      // Initiate swap on the source chain using resolver address
       if (formData.fromChain === 'ethereum') {
         await ethereumService.initiateSwap(
-          formData.recipient,
+          resolverAddress,
           hashlock,
           timelock,
           formData.inputAmount
         );
-        localStorage.setItem(`swap_ethereum_recipient_${hashlock}`, formData.recipient);
+        localStorage.setItem(`swap_ethereum_recipient_${hashlock}`, resolverAddress);
       } else {
         await aptosService.initiateSwap(
-          formData.recipient,
+          resolverAddress,
           hashlock,
           timelock,
           formData.inputAmount
         );
-        localStorage.setItem(`swap_aptos_recipient_${hashlock}`, formData.recipient);
+        localStorage.setItem(`swap_aptos_recipient_${hashlock}`, resolverAddress);
       }
 
       // Store the secret locally
@@ -181,32 +161,19 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
       setFormData(prev => ({
         ...prev,
         inputAmount: '',
-        outputAmount: '',
-        recipient: ''
+        outputAmount: ''
       }));
 
-              toast.success(`Swap initiated successfully! Hashlock: ${hashlock.substring(0, 16)}...`);
+      toast.success(`Swap initiated successfully! Hashlock: ${hashlock.substring(0, 16)}...`);
         
-        // Invalidate the swaps cache to trigger a refetch
-        dispatch(swapsApi.util.invalidateTags(['Swap']));
-      } catch (error) {
-        console.error('Failed to initiate swap:', error);
-        toast.error('Failed to initiate swap: ' + (error as Error).message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-  const getAddressPlaceholder = () => {
-    return formData.fromChain === 'ethereum' 
-      ? '0x1234... (40 hex characters)' 
-      : '0x1234... (64 hex characters)';
-  };
-
-  const getAddressHelpText = () => {
-    return formData.fromChain === 'ethereum'
-      ? 'Enter the Ethereum address that will receive the ETH'
-      : 'Enter the Aptos address that will receive the APT';
+      // Invalidate the swaps cache to trigger a refetch
+      dispatch(swapsApi.util.invalidateTags(['Swap']));
+    } catch (error) {
+      console.error('Failed to initiate swap:', error);
+      toast.error('Failed to initiate swap: ' + (error as Error).message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -226,114 +193,119 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
           </Typography>
         </Alert>
 
-                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-           {/* Chain Selection */}
-           <Paper elevation={1} sx={{ p: 3, bgcolor: 'grey.50' }}>
-             <Typography variant="h6" gutterBottom>
-               Chain Configuration
-             </Typography>
-             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-               <FormControl fullWidth>
-                 <InputLabel>From Chain</InputLabel>
-                 <Select
-                   name="fromChain"
-                   value={formData.fromChain}
-                   onChange={handleChainChange}
-                   disabled={loading}
-                 >
-                   <MenuItem value="ethereum">
-                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                       <Chip label="ETH" size="small" sx={{ mr: 1 }} />
-                       Ethereum
-                     </Box>
-                   </MenuItem>
-                   <MenuItem value="aptos">
-                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                       <Chip label="APT" size="small" sx={{ mr: 1 }} />
-                       Aptos
-                     </Box>
-                   </MenuItem>
-                 </Select>
-               </FormControl>
-               <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                 <SwapIcon sx={{ mx: 2, color: 'text.secondary' }} />
-                 <Typography variant="body1" color="text.secondary">
-                   {formData.toChain === 'ethereum' ? 'Ethereum' : 'Aptos'}
-                 </Typography>
-               </Box>
-             </Box>
-           </Paper>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {/* Chain Selection */}
+          <Paper elevation={1} sx={{ p: 3, bgcolor: 'grey.50' }}>
+            <Typography variant="h6" gutterBottom>
+              Chain Configuration
+            </Typography>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+              <FormControl fullWidth>
+                <InputLabel>From Chain</InputLabel>
+                <Select
+                  name="fromChain"
+                  value={formData.fromChain}
+                  onChange={handleChainChange}
+                  disabled={loading}
+                >
+                  <MenuItem value="ethereum">
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Chip label="ETH" size="small" sx={{ mr: 1 }} />
+                      Ethereum
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="aptos">
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Chip label="APT" size="small" sx={{ mr: 1 }} />
+                      Aptos
+                    </Box>
+                  </MenuItem>
+                </Select>
+              </FormControl>
+              <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                <SwapIcon sx={{ mx: 2, color: 'text.secondary' }} />
+                <Typography variant="body1" color="text.secondary">
+                  {formData.toChain === 'ethereum' ? 'Ethereum' : 'Aptos'}
+                </Typography>
+              </Box>
+            </Box>
+          </Paper>
 
-           {/* Amount Inputs */}
-           <Paper elevation={1} sx={{ p: 3, bgcolor: 'grey.50' }}>
-             <Typography variant="h6" gutterBottom>
-               Swap Amounts
-             </Typography>
-             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-               <TextField
-                 fullWidth
-                 label={`Input Amount (${formData.fromToken})`}
-                 name="inputAmount"
-                 type="number"
-                 value={formData.inputAmount}
-                 onChange={handleInputChange}
-                 placeholder="0.1"
-                 inputProps={{ step: "0.001", min: "0" }}
-                 disabled={loading}
-                 helperText={`Amount you're sending from ${formData.fromChain}`}
-               />
-               <TextField
-                 fullWidth
-                 label={`Output Amount (${formData.toToken})`}
-                 name="outputAmount"
-                 type="number"
-                 value={formData.outputAmount}
-                 onChange={handleInputChange}
-                 placeholder="0.1"
-                 inputProps={{ step: "0.001", min: "0" }}
-                 disabled={loading}
-                 helperText={`Amount you expect to receive on ${formData.toChain}`}
-               />
-             </Box>
-           </Paper>
+          {/* Amount Inputs */}
+          <Paper elevation={1} sx={{ p: 3, bgcolor: 'grey.50' }}>
+            <Typography variant="h6" gutterBottom>
+              Swap Amounts
+            </Typography>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+              <TextField
+                fullWidth
+                label={`Input Amount (${formData.fromToken})`}
+                name="inputAmount"
+                type="number"
+                value={formData.inputAmount}
+                onChange={handleInputChange}
+                placeholder="0.1"
+                inputProps={{ step: "0.001", min: "0" }}
+                disabled={loading}
+                helperText={`Amount you're sending from ${formData.fromChain}`}
+              />
+              <TextField
+                fullWidth
+                label={`Output Amount (${formData.toToken})`}
+                name="outputAmount"
+                type="number"
+                value={formData.outputAmount}
+                onChange={handleInputChange}
+                placeholder="0.1"
+                inputProps={{ step: "0.001", min: "0" }}
+                disabled={loading}
+                helperText={`Amount you expect to receive on ${formData.toChain}`}
+              />
+            </Box>
+          </Paper>
 
-           {/* Recipient Address */}
-           <TextField
-             fullWidth
-             label="Recipient Address"
-             name="recipient"
-             value={formData.recipient}
-             onChange={handleInputChange}
-             placeholder={getAddressPlaceholder()}
-             disabled={loading}
-             helperText={getAddressHelpText()}
-             InputProps={{
-               endAdornment: (
-                 <Tooltip title="This address will receive the tokens on the source chain">
-                   <IconButton size="small">
-                     <InfoIcon />
-                   </IconButton>
-                 </Tooltip>
-               ),
-             }}
-           />
+          {/* Resolver Address Display */}
+          <Paper elevation={1} sx={{ p: 3, bgcolor: 'grey.50' }}>
+            <Typography variant="h6" gutterBottom>
+              Resolver Address
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                {formData.fromChain === 'ethereum' ? 'Ethereum' : 'Aptos'} Resolver:
+              </Typography>
+              <Typography variant="body2" fontFamily="monospace" sx={{ 
+                bgcolor: 'background.paper', 
+                p: 1, 
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: 'divider'
+              }}>
+                {formData.fromChain === 'ethereum' 
+                  ? config.ethereum.resolverAddress 
+                  : config.aptos.resolverAddress}
+              </Typography>
+              <Tooltip title="This is the resolver address that will receive the tokens on the source chain">
+                <IconButton size="small">
+                  <InfoIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Paper>
 
-           {/* Timelock */}
-           <TextField
-             fullWidth
-             label="Timelock (seconds)"
-             name="timelock"
-             type="number"
-             value={formData.timelock}
-             onChange={handleInputChange}
-             inputProps={{ min: "300", max: "86400" }}
-             disabled={loading}
-             helperText="Time limit for completing the swap"
-             sx={{ maxWidth: { sm: '50%' } }}
-           />
-
-
-         </Box>
+          {/* Timelock */}
+          <TextField
+            fullWidth
+            label="Timelock (seconds)"
+            name="timelock"
+            type="number"
+            value={formData.timelock}
+            onChange={handleInputChange}
+            inputProps={{ min: "300", max: "86400" }}
+            disabled={loading}
+            helperText="Time limit for completing the swap"
+            sx={{ maxWidth: { sm: '50%' } }}
+          />
+        </Box>
 
         <Divider sx={{ my: 3 }} />
 
@@ -343,7 +315,7 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
             variant="contained"
             size="large"
             onClick={initiateSwap}
-            disabled={loading || !formData.inputAmount || !formData.outputAmount || !formData.recipient}
+            disabled={loading || !formData.inputAmount || !formData.outputAmount}
             startIcon={loading ? undefined : <SwapIcon />}
             sx={{ 
               px: 4, 
