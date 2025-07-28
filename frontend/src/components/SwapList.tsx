@@ -21,43 +21,40 @@ import {
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import { SwapStatus, WalletConnection } from '../types';
-import { relayerService } from '../services/relayer';
 import { ethereumService } from '../services/ethereum';
 import { aptosService } from '../services/aptos';
+import { useGetSwapsQuery } from '../store/swapsApi';
 
 interface SwapListProps {
   walletConnection: WalletConnection;
 }
 
 const SwapList: React.FC<SwapListProps> = ({ walletConnection }) => {
-  const [pendingSwaps, setPendingSwaps] = useState<SwapStatus[]>([]);
-  const [completedSwaps, setCompletedSwaps] = useState<SwapStatus[]>([]);
   const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [secretInputs, setSecretInputs] = useState<{ [key: string]: string }>({});
   const [showSecretInputs, setShowSecretInputs] = useState<{ [key: string]: boolean }>({});
 
-  const loadSwaps = async () => {
-    setRefreshing(true);
-    try {
-      const [pending, completed] = await Promise.all([
-        relayerService.getPendingSwaps(),
-        relayerService.getCompletedSwaps()
-      ]);
-      setPendingSwaps(pending);
-      setCompletedSwaps(completed);
-    } catch (error) {
-      console.error('Failed to load swaps:', error);
-    } finally {
-      setRefreshing(false);
-    }
-  };
+  const { data: swapsData, isLoading, refetch, error } = useGetSwapsQuery(undefined, {
+    pollingInterval: 10000, // Poll every 5 seconds
+    refetchOnMountOrArgChange: true, // Ensure it refetches on mount
+  });
+  const pendingSwaps = swapsData?.pending || [];
+  const completedSwaps = swapsData?.completed || [];
 
+  // Debug logging
+  console.log('🔄 SwapList render:', {
+    isLoading,
+    hasData: !!swapsData,
+    pendingCount: pendingSwaps.length,
+    completedCount: completedSwaps.length,
+    error: error ? (error as any).error : null
+  });
+
+  // Force initial fetch on mount
   useEffect(() => {
-    loadSwaps();
-    const interval = setInterval(loadSwaps, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    console.log('🔄 SwapList mounted, triggering initial fetch...');
+    refetch();
+  }, [refetch]);
 
   const getSecretForHashlock = (hashlock: string): string | null => {
     const completedSwap = completedSwaps.find(swap => swap.hashlock === hashlock && swap.secret);
@@ -93,7 +90,7 @@ const SwapList: React.FC<SwapListProps> = ({ walletConnection }) => {
       }
 
       toast.success('Swap completed successfully!');
-      loadSwaps();
+      refetch();
     } catch (error) {
       console.error('Failed to complete swap:', error);
       toast.error('Failed to complete swap: ' + (error as Error).message);
@@ -155,7 +152,7 @@ const SwapList: React.FC<SwapListProps> = ({ walletConnection }) => {
       }
 
       toast.success('Swap refunded successfully!');
-      loadSwaps();
+      refetch();
     } catch (error) {
       console.error('Failed to refund swap:', error);
       toast.error('Failed to refund swap: ' + (error as Error).message);
@@ -327,12 +324,12 @@ const SwapList: React.FC<SwapListProps> = ({ walletConnection }) => {
             Atomic Swaps
           </Typography>
           <Button
-            startIcon={refreshing ? <CircularProgress size={16} /> : <RefreshIcon />}
-            onClick={loadSwaps}
-            disabled={refreshing}
+            startIcon={isLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
+            onClick={() => refetch()}
+            disabled={isLoading}
             variant="outlined"
           >
-            {refreshing ? 'Refreshing...' : 'Refresh'}
+            {isLoading ? 'Refreshing...' : 'Refresh'}
           </Button>
         </Box>
 

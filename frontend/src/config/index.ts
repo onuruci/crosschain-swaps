@@ -4,14 +4,15 @@ export const config = {
   ethereum: {
     rpcUrl: process.env.REACT_APP_ETHEREUM_RPC_URL || 'http://127.0.0.1:8545',
     chainId: process.env.REACT_APP_ETHEREUM_CHAIN_ID || '31337',
-    contractAddress: process.env.REACT_APP_ETHEREUM_CONTRACT_ADDRESS || '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
+    contractAddress: process.env.REACT_APP_ETHEREUM_CONTRACT_ADDRESS || '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707',
   },
 
   // Aptos Configuration
   aptos: {
     nodeUrl: process.env.REACT_APP_APTOS_NODE_URL || 'https://fullnode.testnet.aptoslabs.com',
     chainId: process.env.REACT_APP_APTOS_CHAIN_ID!,
-    contractAddress: process.env.REACT_APP_APTOS_CONTRACT_ADDRESS!
+    contractAddress: process.env.REACT_APP_APTOS_CONTRACT_ADDRESS!,
+    moduleName: process.env.REACT_APP_APTOS_MODULE_NAME || 'AtomicSwapV5'
   },
 
   // Relayer Configuration

@@ -56,6 +56,10 @@ class EthereumService {
     return ethers.formatEther(balance);
   }
 
+  get providerInstance(): ethers.BrowserProvider | null {
+    return this.provider;
+  }
+
   async initiateSwap(recipient: string, hashlock: string, timelock: number, amount: string): Promise<any> {
     if (!this.contract) throw new Error('Not connected');
     
@@ -75,7 +79,12 @@ class EthereumService {
     try {
       const bytes32Hashlock = ethers.zeroPadValue(hashlock, 32);
       console.log('🔍 Bytes32 hashlock:', bytes32Hashlock);
+      
+      // Clear any stored hashlocks from localStorage to prevent reuse
+      this.clearStoredHashlocks();
+      
       const hashlockUsed = await this.contract.hashlockUsed(bytes32Hashlock);
+      console.log('🔍 Hashlock used check result:', hashlockUsed);
       
       if (hashlockUsed) {
         console.error('❌ Hashlock is already used! This means either:');
@@ -242,7 +251,25 @@ class EthereumService {
     const combinedArray = new Uint8Array(32);
     combinedArray.set(array);
     combinedArray.set(timestampArray.slice(0, 8), 24); // Add timestamp to last 8 bytes
-    return ethers.hexlify(combinedArray);
+    const secret = ethers.hexlify(combinedArray);
+    
+    console.log('🔑 Generated new secret:', {
+      secret: secret.substring(0, 16) + '...',
+      timestamp: new Date().toISOString(),
+      randomBytes: Array.from(array.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join('')
+    });
+    
+    return secret;
+  }
+
+  // Clear stored hashlocks from localStorage
+  private clearStoredHashlocks(): void {
+    const keys = Object.keys(localStorage);
+    const hashlockKeys = keys.filter(key => key.startsWith('swap_secret_') || key.includes('hashlock'));
+    hashlockKeys.forEach(key => {
+      console.log('🗑️ Clearing stored hashlock:', key);
+      localStorage.removeItem(key);
+    });
   }
 
   // Debug function to check hashlock status
@@ -273,6 +300,15 @@ class EthereumService {
       } catch (error) {
         console.log('Cannot check completion/refund status');
       }
+      
+      // List all stored hashlocks in localStorage
+      console.log('📋 Stored hashlocks in localStorage:');
+      const keys = Object.keys(localStorage);
+      const hashlockKeys = keys.filter(key => key.startsWith('swap_secret_') || key.includes('hashlock'));
+      hashlockKeys.forEach(key => {
+        const value = localStorage.getItem(key);
+        console.log(`  ${key}: ${value ? value.substring(0, 16) + '...' : 'null'}`);
+      });
     } catch (error) {
       console.error('Error debugging hashlock:', error);
     }

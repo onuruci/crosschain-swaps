@@ -47,19 +47,4 @@ export interface WalletConnection {
   };
 }
 
-export interface RelayerStatus {
-  ethereum: {
-    connected: boolean;
-    blockNumber: number;
-    contractAddress: string;
-  };
-  aptos: {
-    connected: boolean;
-    blockNumber: number;
-    contractAddress: string;
-  };
-  relayer: {
-    running: boolean;
-    uptime: number;
-  };
-} 
+ 

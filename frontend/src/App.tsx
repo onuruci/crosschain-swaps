@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { Provider } from 'react-redux';
 import {
   Box,
   Container,
@@ -13,15 +14,14 @@ import {
 import {
   SwapHoriz as SwapIcon,
   CheckCircle as CheckIcon,
-  Cancel as CancelIcon,
-  Schedule as ScheduleIcon
+  Cancel as CancelIcon
 } from '@mui/icons-material';
 import { Toaster } from 'react-hot-toast';
 import WalletConnector from './components/WalletConnector';
 import SwapForm from './components/SwapForm';
 import SwapList from './components/SwapList';
-import { WalletConnection, RelayerStatus } from './types';
-import { relayerService } from './services/relayer';
+import { WalletConnection } from './types';
+import { store } from './store';
 
 // Create a custom theme
 const theme = createTheme({
@@ -73,67 +73,16 @@ function App() {
     ethereum: { connected: false },
     aptos: { connected: false }
   });
-  const [relayerStatus, setRelayerStatus] = useState<RelayerStatus | null>(null);
-
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    checkRelayerStatus();
-    const interval = setInterval(checkRelayerStatus, 10000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const checkRelayerStatus = async () => {
-    try {
-      const status = await relayerService.getStatus();
-      setRelayerStatus(status);
-    } catch (error) {
-      console.error('Failed to get relayer status:', error);
-      setRelayerStatus(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSwapInitiated = (hashlock: string) => {
     // Swap initiated successfully
     console.log('Swap initiated with hashlock:', hashlock);
   };
 
-  const getStatusIcon = (status: boolean) => {
-    return status ? <CheckIcon color="success" /> : <CancelIcon color="error" />;
-  };
-
-  if (loading) {
-    return (
+  return (
+    <Provider store={store}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            minHeight: '100vh',
-            flexDirection: 'column',
-            gap: 2
-          }}
-        >
-          <CircularProgress size={60} />
-          <Typography variant="h5" color="text.secondary">
-            Loading Atomic Swap Interface...
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Checking relayer status...
-          </Typography>
-        </Box>
-      </ThemeProvider>
-    );
-  }
-
-  return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
+        <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
         <Toaster 
           position="top-right"
           toastOptions={{
@@ -189,65 +138,35 @@ function App() {
         </Box>
 
         <Container maxWidth="lg" sx={{ pb: 6 }}>
-          {/* Relayer Status */}
+          {/* Chain Status */}
           <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
             <Typography variant="h5" gutterBottom fontWeight="bold">
-              System Status
+              Chain Status
             </Typography>
-            {relayerStatus ? (
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  {getStatusIcon(relayerStatus.relayer.running)}
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">
-                      Relayer
-                    </Typography>
-                    <Typography variant="body1" fontWeight="medium">
-                      {relayerStatus.relayer.running ? 'Online' : 'Offline'}
-                    </Typography>
-                  </Box>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  {getStatusIcon(relayerStatus.ethereum.connected)}
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">
-                      Ethereum
-                    </Typography>
-                    <Typography variant="body1" fontWeight="medium">
-                      {relayerStatus.ethereum.connected ? 'Connected' : 'Disconnected'}
-                    </Typography>
-                  </Box>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  {getStatusIcon(relayerStatus.aptos.connected)}
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">
-                      Aptos
-                    </Typography>
-                    <Typography variant="body1" fontWeight="medium">
-                      {relayerStatus.aptos.connected ? 'Connected' : 'Disconnected'}
-                    </Typography>
-                  </Box>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <ScheduleIcon color="primary" />
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">
-                      Uptime
-                    </Typography>
-                    <Typography variant="body1" fontWeight="medium">
-                      {Math.floor(relayerStatus.relayer.uptime / 60)}m {Math.floor(relayerStatus.relayer.uptime % 60)}s
-                    </Typography>
-                  </Box>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CheckIcon color="primary" />
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Ethereum
+                  </Typography>
+                  <Typography variant="body1" fontWeight="medium">
+                    Direct Chain Access
+                  </Typography>
                 </Box>
               </Box>
-            ) : (
-              <Alert severity="warning">
-                <Typography variant="body2">
-                  Cannot connect to relayer. Please ensure the relayer is running on http://localhost:3001
-                </Typography>
-              </Alert>
-            )}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CheckIcon color="primary" />
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Aptos
+                  </Typography>
+                  <Typography variant="body1" fontWeight="medium">
+                    Direct Chain Access
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
           </Paper>
 
           {/* Wallet Connections */}
@@ -315,6 +234,7 @@ function App() {
         </Box>
       </Box>
     </ThemeProvider>
+    </Provider>
   );
 }
 

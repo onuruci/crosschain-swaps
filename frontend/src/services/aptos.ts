@@ -50,6 +50,18 @@ class AptosService {
     return coinResource ? (coinResource.data as any).coin.value : '0';
   }
 
+  get aptosInstance(): Aptos | null {
+    return this.aptos;
+  }
+
+  get moduleNameInstance(): string {
+    return this.moduleName;
+  }
+
+  get contractAddressInstance(): string {
+    return this.contractAddress;
+  }
+
   private async initializeSwapBook(): Promise<void> {
     if (!this.aptos || !this.accountAddress || !window.aptos) return;
     
@@ -143,17 +155,33 @@ class AptosService {
     return tx;
   }
 
-  async getSwap(initiator: string, hashlock: string): Promise<any> {
+  async getSwap(hashlock: string): Promise<any> {
     if (!this.aptos) throw new Error('Not connected');
     try {
-      const resource = await this.aptos.getAccountResource({
-        accountAddress: AccountAddress.fromString(initiator),
-        resourceType: `${this.contractAddress}::${this.moduleName}::SwapBook`
+      // Convert hashlock to bytes for the contract call
+      const hashlockBytes = this.hexToBytes(hashlock);
+      
+      // Call the get_swap view function directly
+      const response = await this.aptos.view({
+        payload: {
+          function: `${this.contractAddress}::${this.moduleName}::get_swap`,
+          typeArguments: [],
+          functionArguments: [hashlockBytes]
+        }
       });
-      if (!resource) return null;
-      const swaps = (resource.data as any).swaps || [];
-      const swap = swaps.find((s: any) => s.hashlock === hashlock);
-      return swap || null;
+      
+      if (!response || !Array.isArray(response) || response.length < 6 || response[0] === '0x0') {
+        return null;
+      }
+
+      return {
+        initiator: response[0],
+        recipient: response[1],
+        amount: response[2]?.toString?.() || '0',
+        timelock: response[3]?.toString?.() || '0',
+        completed: response[4],
+        refunded: response[5]
+      };
     } catch (error) {
       console.error('Error getting swap:', error);
       return null;

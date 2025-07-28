@@ -25,6 +25,8 @@ import toast from 'react-hot-toast';
 import { ResolverSwapRequest, WalletConnection } from '../types';
 import { ethereumService } from '../services/ethereum';
 import { aptosService } from '../services/aptos';
+import { swapsApi } from '../store/swapsApi';
+import { useDispatch } from 'react-redux';
 
 interface SwapFormProps {
   walletConnection: WalletConnection;
@@ -43,6 +45,9 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
     timelock: 3600 // 1 hour default
   });
   const [loading, setLoading] = useState(false);
+  
+  // Get the dispatch function to invalidate cache
+  const dispatch = useDispatch();
 
   const handleInputChange = (e: any) => {
     const { name, value } = e.target;
@@ -65,6 +70,16 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
       inputAmount: '',
       outputAmount: ''
     }));
+  };
+
+  const clearAllHashlocks = () => {
+    const keys = Object.keys(localStorage);
+    const hashlockKeys = keys.filter(key => key.startsWith('swap_secret_') || key.includes('hashlock'));
+    hashlockKeys.forEach(key => {
+      localStorage.removeItem(key);
+    });
+    toast.success(`Cleared ${hashlockKeys.length} stored hashlocks`);
+    console.log('🧹 Cleared stored hashlocks:', hashlockKeys);
   };
 
   const validateForm = (): { isValid: boolean; errors: string[] } => {
@@ -170,14 +185,17 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
         recipient: ''
       }));
 
-      toast.success(`Swap initiated successfully! Hashlock: ${hashlock.substring(0, 16)}...`);
-    } catch (error) {
-      console.error('Failed to initiate swap:', error);
-      toast.error('Failed to initiate swap: ' + (error as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
+              toast.success(`Swap initiated successfully! Hashlock: ${hashlock.substring(0, 16)}...`);
+        
+        // Invalidate the swaps cache to trigger a refetch
+        dispatch(swapsApi.util.invalidateTags(['Swap']));
+      } catch (error) {
+        console.error('Failed to initiate swap:', error);
+        toast.error('Failed to initiate swap: ' + (error as Error).message);
+      } finally {
+        setLoading(false);
+      }
+    };
 
   const getAddressPlaceholder = () => {
     return formData.fromChain === 'ethereum' 
@@ -319,8 +337,8 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
 
         <Divider sx={{ my: 3 }} />
 
-        {/* Action Button */}
-        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+        {/* Action Buttons */}
+        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, flexWrap: 'wrap' }}>
           <Button
             variant="contained"
             size="large"
@@ -336,6 +354,21 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
             }}
           >
             {loading ? 'Initiating Swap...' : 'Initiate Swap'}
+          </Button>
+          
+          <Button
+            variant="outlined"
+            size="large"
+            onClick={clearAllHashlocks}
+            sx={{ 
+              px: 4, 
+              py: 1.5, 
+              fontSize: '1.1rem',
+              borderRadius: 2,
+              minWidth: 200
+            }}
+          >
+            Clear Stored Hashlocks
           </Button>
         </Box>
 
