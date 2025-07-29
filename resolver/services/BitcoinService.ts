@@ -19,20 +19,31 @@ class BitcoinService {
         return this.wallet.getAddress()
     }
 
-    public async newHashlockedContractDst(address: string, secretHash: string, lockTime: number, amount: number) {
-        let wallet_pkh = Wallet.getPublicKeyHash(NETWORK, address)
-        await this.wallet.deployHashlockScript(wallet_pkh, secretHash, lockTime, amount)
+    public async newHashlockedContractDst(recepientPukKey: string, secretHash: string, lockTime: number, amount: number) {
+        const bufferedPubKey = Buffer.from(recepientPukKey, 'hex')
+
+        await this.wallet.deployHashlockScript(bufferedPubKey, Buffer.from(secretHash, 'hex'), lockTime, amount)
     }
 
     public async completeSwap(
         txid: string, 
         vout: number, 
         secret:string, 
-        locktime:number, 
-        amount:number, 
+        lockTime:number, 
+        amount:number,
+        senderPubKey: string
         ) {
-        const wallet_pkh = Wallet.getPublicKeyHash(NETWORK, this.wallet.getAddress())
-        await this.wallet.spendHashlockWithSecret(txid, vout, this.wallet.getAddress(), secret, locktime, amount, wallet_pkh)
+
+            console.log(txid)
+            console.log(vout)
+            console.log(secret)
+            console.log(lockTime)
+            console.log(amount)
+            console.log(senderPubKey)
+        const bufferedSenderPubKey = Buffer.from(senderPubKey, 'hex')
+
+        console.log(bufferedSenderPubKey)
+        await this.wallet.spendHashlockWithSecret(txid, vout, this.wallet.getAddress(), secret, lockTime, amount, bufferedSenderPubKey)
     }
 }
 

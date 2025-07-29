@@ -8,7 +8,7 @@ const NETWORK = bitcoin.networks.regtest
 
 const client = new BitcoinClient(NETWORK)
 const wallet = new Wallet("wallet", NETWORK, client)
-const wallet1 = new Wallet("wallet1", NETWORK, client)
+const wallet1 = new Wallet("wallet2", NETWORK, client)
 
 
 const secret = "hello"
@@ -28,10 +28,13 @@ const wallet_pubKey = (Buffer.from(wallet.getPubKey())).toString('hex')
 //wallet.deployHashlockScript(wallet1.getPubKey(), secret, lockTime, amount)
 
 
-//client.getBalance('bcrt1qvettdnwkn9rlfxl7pxwltame707sf4qprrd7gu0dyfsjr77s0n7sxgjgdf')
+client.getBalance('mm2v2g3j6hdbFqDccM7hvZe9PUjwFaAxvF')
 //wallet1.spendHashlockWithSecret('c1133b0337711ecd7c1d35ba4a9008e0b7c6a057e41347df227dc4b9011988bd', 0, wallet1.getAddress(), secret, lockTime, amount, wallet.getPubKey())
 
-client.getBalance(wallet1.getAddress())
+//client.getBalance(wallet1.getAddress())
+
+//console.log(wallet1.getPubKey().toString('hex'))
+// console.log(Buffer.from(wallet1.getPubKey().toString('hex'), 'hex'))
 
 /*
     These are set of functions for Bitcoin Fusion+ POC implementation

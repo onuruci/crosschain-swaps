@@ -1,6 +1,7 @@
 import express from "express"
 var router = express.Router();
 import bitcoinService from "../services/BitcoinService";
+import { getHash } from "../src/utils";
 
 /* GET home page. */
 router.get('/', function(req: any, res: any, next: any) {
@@ -30,10 +31,15 @@ router.post('/swap/ethereum-bitcoin', async function(req: any, res: any, next: a
   // Bitcoin is the destination chain, resolver generates a new hashlocked
   // contract with maker's pubkey as the receiver
 
-  const { valueEth, hash, recipient, lockTime } = req.body;
+  const { valueEth, hash, recepientPubKey, lockTime } = req.body;
+
+  console.log("LOCK TIME: ",lockTime)
+  console.log(hash)
+  console.log(recepientPubKey)
+  console.log(getHash('hello'))
 
   const valuesats = 100000
-  await bitcoinService.newHashlockedContractDst(recipient, hash, lockTime, valuesats)
+  await bitcoinService.newHashlockedContractDst(recepientPubKey, hash, lockTime, valuesats)
 
   res.json({
     "success": true,
@@ -47,8 +53,9 @@ router.post('/complete/bitcoin', async function(req: any, res: any, next: any) {
   // of hashlocked contract that is locked to resolver in bitcoin
   // network, resolver uses the secret and redeems the locked bitcoin 
 
-  const { txid, vout, secret, lockTime, amount } = req.body;
-  await bitcoinService.completeSwap(txid, parseInt(vout), secret, parseInt(lockTime), parseInt(amount))
+  const { txid, vout, secret, lockTime, amount, senderPubKey } = req.body;
+  
+  await bitcoinService.completeSwap(txid, parseInt(vout), secret, parseInt(lockTime), parseInt(amount), senderPubKey)
 
   res.json({
     "success": true,

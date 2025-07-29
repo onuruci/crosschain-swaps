@@ -78,7 +78,7 @@ class Wallet {
     }
 
     public getPubKey() {
-        return this.keypair.publicKey
+        return Buffer.from(this.keypair.publicKey)
     }
 
     public async buildTransaction(
@@ -121,7 +121,7 @@ class Wallet {
             throw new Error('Insufficient funds');
         }
 
-        const estimatedFee = 500;
+        const estimatedFee = 1000;
         const change = totalInput - amount - estimatedFee;
 
         console.log(`Total input: ${totalInput} satoshis`);
@@ -168,39 +168,43 @@ class Wallet {
         await this.client.broadcastTransaction(rawTransaction)
     }
 
-    public async deployHashlockScript(payerPubKey: any, secretHash: string, lockTime: number, amount: number) {
+    public async deployHashlockScript(receipentPubKey: any, secretHash: any, lockTime: number, amount: number) {
         const network = this.network
 
-        const hashlockScript = createHashlockScriptP2Address(secretHash, lockTime, payerPubKey);
+
+        const hashlockScript = createHashlockScript(secretHash, lockTime, receipentPubKey, this.getPubKey());
 
         const p2wsh = bitcoin.payments.p2wsh({
             redeem: { output: hashlockScript },
             network
         });
         
+        console.log("Deploying new hashlock script")
         console.log('Hashlock Address:', p2wsh.address);
         console.log('Script (hex):', hashlockScript.toString('hex'));
+        console.log(receipentPubKey)
+        console.log(this.getPubKey())
         await this.buildTransaction(p2wsh.address || "", amount)
     }
 
     public async spendHashlockWithSecret(
         hashlockTxid: any, 
-        hashlockVout: number, 
+        hashlockVout: any, 
         recipientAddress: any,
         secret:string,
         lockTime: number,
         amount : any,
-        recepientPkh: any
+        senderPubKey: any
     ) {
         const keyPair = this.keypair;
         const bufferPubkey = Buffer.from(keyPair.publicKey);
         const network = this.network
         const secretHash = getHash(secret);
 
-        console.log('Secret (hex):', secret);
+        console.log('Secret (hex):', secretHash);
         console.log('Secret Hash (hex):', secretHash.toString('hex'));
 
-        const hashlockScript = createHashlockScriptP2Address(secretHash, lockTime, recepientPkh);
+        const hashlockScript = createHashlockScript(secretHash, lockTime, this.getPubKey(), senderPubKey);
 
         const fee = 1000;
 
