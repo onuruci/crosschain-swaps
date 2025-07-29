@@ -4,7 +4,7 @@ export const config = {
   ethereum: {
     rpcUrl: process.env.REACT_APP_ETHEREUM_RPC_URL || 'http://127.0.0.1:8545',
     chainId: process.env.REACT_APP_ETHEREUM_CHAIN_ID || '31337',
-    contractAddress: process.env.REACT_APP_ETHEREUM_CONTRACT_ADDRESS || '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707',
+    contractAddress: process.env.REACT_APP_ETHEREUM_CONTRACT_ADDRESS || '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9',
     resolverAddress: process.env.REACT_APP_RESOLVER_ETHEREUM_ADDRESS!, // Hardhat account #1
   },
 
@@ -15,11 +15,12 @@ export const config = {
     contractAddress: process.env.REACT_APP_APTOS_CONTRACT_ADDRESS!,
     moduleName: process.env.REACT_APP_APTOS_MODULE_NAME || 'AtomicSwapV5',
     resolverAddress: process.env.REACT_APP_RESOLVER_APTOS_ADDRESS!, // Example Aptos resolver address
+    apiKey: process.env.REACT_APP_APTOS_API_KEY!,
   },
 
-  // Relayer Configuration
-  relayer: {
-    url: process.env.REACT_APP_RELAYER_URL || 'http://localhost:3001',
+
+  resolver: {
+    url: process.env.REACT_APP_RESOLVER_URL || 'http://localhost:3001',
   },
 
   // Network Configuration

@@ -35,7 +35,7 @@ const SwapList: React.FC<SwapListProps> = ({ walletConnection }) => {
   const [showSecretInputs, setShowSecretInputs] = useState<{ [key: string]: boolean }>({});
 
   const { data: swapsData, isLoading, refetch, error } = useGetSwapsQuery(undefined, {
-    pollingInterval: 30000, // Poll every 30 seconds
+    pollingInterval: 300000, // Poll every 300 seconds
     refetchOnMountOrArgChange: true, // Ensure it refetches on mount
   });
   const pendingSwaps = swapsData?.pending || [];

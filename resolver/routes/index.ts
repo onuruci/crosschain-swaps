@@ -1,6 +1,8 @@
 import express from "express"
 var router = express.Router();
 import bitcoinService from "../services/BitcoinService";
+import ethereumService from "../services/EthereumService";
+import aptosService from "../services/AptosService";
 import { getHash } from "../src/utils";
 
 /* GET home page. */
@@ -73,5 +75,73 @@ router.post('/complete/ethereum', function(req: any, res: any, next: any) {
   });
 })
 
+// New swap endpoints for creating counter swaps
+router.post('/swap/ethereum', async function(req: any, res: any, next: any) {
+  // Create counter swap on Ethereum
+  // Parameters: hashlock, maker address, timelock
+  const { hashlock, makerAddress, timelock, amount } = req.body;
+
+  try {
+    console.log('🔄 Creating counter swap on Ethereum:', {
+      hashlock: hashlock.substring(0, 16) + '...',
+      makerAddress,
+      timelock,
+      amount
+    });
+
+    const txHash = await ethereumService.initiateSwap(
+      makerAddress,
+      hashlock,
+      timelock,
+      amount
+    );
+
+    res.json({
+      "success": true,
+      "txHash": txHash,
+      "address": ethereumService.getAddress()
+    });
+  } catch (error) {
+    console.error('❌ Error creating Ethereum counter swap:', error);
+    res.status(500).json({
+      "success": false,
+      "error": error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+router.post('/swap/aptos', async function(req: any, res: any, next: any) {
+  // Create counter swap on Aptos
+  // Parameters: hashlock, maker address, timelock
+  const { hashlock, makerAddress, timelock, amount } = req.body;
+
+  try {
+    console.log('🔄 Creating counter swap on Aptos:', {
+      hashlock: hashlock.substring(0, 16) + '...',
+      makerAddress,
+      timelock,
+      amount
+    });
+
+    const result = await aptosService.initiateSwap(
+      makerAddress,
+      hashlock,
+      timelock,
+      amount
+    );
+
+    res.json({
+      "success": true,
+      "txHash": result.hash,
+      "address": await aptosService.getAddress()
+    });
+  } catch (error) {
+    console.error('❌ Error creating Aptos counter swap:', error);
+    res.status(500).json({
+      "success": false,
+      "error": error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
 
 export default router

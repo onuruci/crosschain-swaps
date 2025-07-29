@@ -15,7 +15,10 @@ class AptosService {
     const accountInfo = await window.aptos.account();
     
     const aptosConfig = new AptosConfig({ 
-      network: config.network === 'mainnet' ? Network.MAINNET : Network.TESTNET 
+      network: config.network === 'mainnet' ? Network.MAINNET : Network.TESTNET,
+      clientConfig: {
+        API_KEY: config.aptos.apiKey,
+      }
     });
     this.aptos = new Aptos(aptosConfig);
     this.accountAddress = AccountAddress.fromString(accountInfo.address);

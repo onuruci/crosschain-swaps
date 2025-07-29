@@ -16,6 +16,7 @@ export interface ResolverSwapRequest {
   toToken: string;
   inputAmount: string;
   outputAmount: string;
+  recipientAddress: string; // Address on the destination chain
   timelock: number;
 }
 

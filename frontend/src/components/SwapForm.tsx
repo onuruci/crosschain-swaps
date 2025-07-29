@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -25,6 +25,7 @@ import toast from 'react-hot-toast';
 import { ResolverSwapRequest, WalletConnection } from '../types';
 import { ethereumService } from '../services/ethereum';
 import { aptosService } from '../services/aptos';
+import { resolverService } from '../services/resolver';
 import { swapsApi } from '../store/swapsApi';
 import { useDispatch } from 'react-redux';
 import { config } from '../config';
@@ -42,12 +43,29 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
     toToken: 'APT',
     inputAmount: '',
     outputAmount: '',
+    recipientAddress: '', // Address on the destination chain
     timelock: 3600 // 1 hour default
   });
   const [loading, setLoading] = useState(false);
+  const [resolverStatus, setResolverStatus] = useState<'checking' | 'healthy' | 'unhealthy'>('checking');
   
   // Get the dispatch function to invalidate cache
   const dispatch = useDispatch();
+
+  // Check resolver health on component mount
+  useEffect(() => {
+    const checkResolverHealth = async () => {
+      try {
+        const healthy = await resolverService.checkHealth();
+        setResolverStatus(healthy ? 'healthy' : 'unhealthy');
+      } catch (error) {
+        console.warn('Resolver health check failed:', error);
+        setResolverStatus('unhealthy');
+      }
+    };
+
+    checkResolverHealth();
+  }, []);
 
   const handleInputChange = (e: any) => {
     const { name, value } = e.target;
@@ -68,7 +86,8 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
       fromToken: fromChain === 'ethereum' ? 'ETH' : 'APT',
       toToken: toChain === 'ethereum' ? 'ETH' : 'APT',
       inputAmount: '',
-      outputAmount: ''
+      outputAmount: '',
+      recipientAddress: '' // Reset recipient address when chain changes
     }));
   };
 
@@ -82,7 +101,7 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
     console.log('🧹 Cleared stored hashlocks:', hashlockKeys);
   };
 
-  const validateForm = (): { isValid: boolean; errors: string[] } => {
+  const validateForm = async (): Promise<{ isValid: boolean; errors: string[] }> => {
     const errors: string[] = [];
 
     if (!formData.inputAmount || parseFloat(formData.inputAmount) <= 0) {
@@ -93,6 +112,10 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
       errors.push('Please enter a valid output amount');
     }
 
+    if (!formData.recipientAddress || formData.recipientAddress.trim() === '') {
+      errors.push('Please enter the recipient address on the destination chain');
+    }
+
     // Check wallet connections
     if (formData.fromChain === 'ethereum' && !walletConnection.ethereum.connected) {
       errors.push('Please connect your Ethereum wallet first');
@@ -101,11 +124,17 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
       errors.push('Please connect your Aptos wallet first');
     }
 
+    // Check resolver availability
+    const resolverHealthy = await resolverService.checkHealth();
+    if (!resolverHealthy) {
+      errors.push('Resolver service is not available. Please ensure the resolver is running.');
+    }
+
     return { isValid: errors.length === 0, errors };
   };
 
   const initiateSwap = async () => {
-    const validation = validateForm();
+    const validation = await validateForm();
     if (!validation.isValid) {
       validation.errors.forEach(error => toast.error(error));
       return;
@@ -132,6 +161,18 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
         ? config.ethereum.resolverAddress 
         : config.aptos.resolverAddress;
 
+      // Get the user's address for the source chain (where they're sending from)
+      const userAddress = formData.fromChain === 'ethereum' 
+        ? walletConnection.ethereum.address 
+        : walletConnection.aptos.address;
+      
+      if (!userAddress) {
+        throw new Error(`No ${formData.fromChain} wallet address available`);
+      }
+
+      // Use the recipient address from the form for the destination chain
+      const recipientAddress = formData.recipientAddress.trim();
+
       // Initiate swap on the source chain using resolver address
       if (formData.fromChain === 'ethereum') {
         await ethereumService.initiateSwap(
@@ -141,6 +182,23 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
           formData.inputAmount
         );
         localStorage.setItem(`swap_ethereum_recipient_${hashlock}`, resolverAddress);
+        
+        // Call resolver to create counter swap on Aptos
+        console.log('🔄 Initiating counter swap on Aptos via resolver...');
+        const counterSwapResult = await resolverService.createAptosCounterSwap(
+          hashlock,
+          recipientAddress, // Use the recipient address for the destination chain
+          timelock,
+          formData.outputAmount
+        );
+        
+        if (counterSwapResult.success) {
+          console.log('✅ Counter swap created on Aptos:', counterSwapResult.txHash);
+          localStorage.setItem(`swap_aptos_counter_${hashlock}`, counterSwapResult.txHash || '');
+        } else {
+          console.warn('⚠️ Counter swap creation failed:', counterSwapResult.error);
+          toast.error(`Swap initiated but counter swap failed: ${counterSwapResult.error}`);
+        }
       } else {
         await aptosService.initiateSwap(
           resolverAddress,
@@ -149,6 +207,23 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
           formData.inputAmount
         );
         localStorage.setItem(`swap_aptos_recipient_${hashlock}`, resolverAddress);
+        
+        // Call resolver to create counter swap on Ethereum
+        console.log('🔄 Initiating counter swap on Ethereum via resolver...');
+        const counterSwapResult = await resolverService.createEthereumCounterSwap(
+          hashlock,
+          recipientAddress, // Use the recipient address for the destination chain
+          timelock,
+          formData.outputAmount
+        );
+        
+        if (counterSwapResult.success) {
+          console.log('✅ Counter swap created on Ethereum:', counterSwapResult.txHash);
+          localStorage.setItem(`swap_ethereum_counter_${hashlock}`, counterSwapResult.txHash || '');
+        } else {
+          console.warn('⚠️ Counter swap creation failed:', counterSwapResult.error);
+          toast.error(`Swap initiated but counter swap failed: ${counterSwapResult.error}`);
+        }
       }
 
       // Store the secret locally
@@ -164,7 +239,7 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
         outputAmount: ''
       }));
 
-      toast.success(`Swap initiated successfully! Hashlock: ${hashlock.substring(0, 16)}...`);
+      toast.success(`Swap initiated successfully! Hashlock: ${hashlock.substring(0, 16)}... Counter swap created on ${formData.toChain}.`);
         
       // Invalidate the swaps cache to trigger a refetch
       dispatch(swapsApi.util.invalidateTags(['Swap']));
@@ -188,8 +263,8 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
 
         <Alert severity="info" sx={{ mb: 3 }}>
           <Typography variant="body2">
-            <strong>Resolver Pattern:</strong> Enter the amount you want to send and the amount you expect to receive. 
-            The swap will be initiated on the source chain with the resolver's address as recipient.
+            <strong>Resolver Pattern:</strong> Enter the amount you want to send, the amount you expect to receive, and the recipient address on the destination chain. 
+            The swap will be initiated on the source chain with the resolver's address as recipient, and the resolver will create a counter swap on the destination chain.
           </Typography>
         </Alert>
 
@@ -264,31 +339,73 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
             </Box>
           </Paper>
 
+          {/* Recipient Address Input */}
+          <Paper elevation={1} sx={{ p: 3, bgcolor: 'grey.50' }}>
+            <Typography variant="h6" gutterBottom>
+              Recipient Address
+            </Typography>
+            <TextField
+              fullWidth
+              label={`Recipient Address (${formData.toChain === 'ethereum' ? 'Ethereum' : 'Aptos'})`}
+              name="recipientAddress"
+              value={formData.recipientAddress}
+              onChange={handleInputChange}
+              placeholder={formData.toChain === 'ethereum' ? '0x...' : '0x...'}
+              disabled={loading}
+              helperText={`Address on ${formData.toChain} where you want to receive the ${formData.toToken}`}
+              sx={{ fontFamily: 'monospace' }}
+            />
+          </Paper>
+
           {/* Resolver Address Display */}
           <Paper elevation={1} sx={{ p: 3, bgcolor: 'grey.50' }}>
             <Typography variant="h6" gutterBottom>
-              Resolver Address
+              Resolver Configuration
             </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography variant="body2" color="text.secondary">
-                {formData.fromChain === 'ethereum' ? 'Ethereum' : 'Aptos'} Resolver:
-              </Typography>
-              <Typography variant="body2" fontFamily="monospace" sx={{ 
-                bgcolor: 'background.paper', 
-                p: 1, 
-                borderRadius: 1,
-                border: '1px solid',
-                borderColor: 'divider'
-              }}>
-                {formData.fromChain === 'ethereum' 
-                  ? config.ethereum.resolverAddress 
-                  : config.aptos.resolverAddress}
-              </Typography>
-              <Tooltip title="This is the resolver address that will receive the tokens on the source chain">
-                <IconButton size="small">
-                  <InfoIcon />
-                </IconButton>
-              </Tooltip>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  {formData.fromChain === 'ethereum' ? 'Ethereum' : 'Aptos'} Resolver:
+                </Typography>
+                <Typography variant="body2" fontFamily="monospace" sx={{ 
+                  bgcolor: 'background.paper', 
+                  p: 1, 
+                  borderRadius: 1,
+                  border: '1px solid',
+                  borderColor: 'divider'
+                }}>
+                  {formData.fromChain === 'ethereum' 
+                    ? config.ethereum.resolverAddress 
+                    : config.aptos.resolverAddress}
+                </Typography>
+                <Tooltip title="This is the resolver address that will receive the tokens on the source chain">
+                  <IconButton size="small">
+                    <InfoIcon />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Resolver Service:
+                </Typography>
+                <Chip 
+                  label={resolverStatus === 'checking' ? 'Checking...' : 
+                         resolverStatus === 'healthy' ? 'Healthy' : 'Unavailable'}
+                  color={resolverStatus === 'healthy' ? 'success' : 
+                         resolverStatus === 'checking' ? 'warning' : 'error'}
+                  size="small"
+                />
+                <Typography variant="body2" fontFamily="monospace" sx={{ 
+                  bgcolor: 'background.paper', 
+                  p: 1, 
+                  borderRadius: 1,
+                  border: '1px solid',
+                  borderColor: 'divider'
+                }}>
+                  {config.resolver.url}
+                </Typography>
+              </Box>
             </Box>
           </Paper>
 
@@ -315,7 +432,7 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
             variant="contained"
             size="large"
             onClick={initiateSwap}
-            disabled={loading || !formData.inputAmount || !formData.outputAmount}
+            disabled={loading || !formData.inputAmount || !formData.outputAmount || !formData.recipientAddress}
             startIcon={loading ? undefined : <SwapIcon />}
             sx={{ 
               px: 4, 
@@ -348,6 +465,7 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
         <Alert severity="warning" sx={{ mt: 3 }}>
           <Typography variant="body2">
             <strong>Important:</strong> This swap will be initiated on {formData.fromChain} with the resolver's address as recipient. 
+            The resolver will automatically create a counter swap on {formData.toChain}. 
             Keep your secret safe - it's required to complete the swap on {formData.toChain}.
           </Typography>
         </Alert>

@@ -1,12 +1,29 @@
+// Load environment variables first, before any other imports
+import dotenv from "dotenv"
+dotenv.config()
+
 import createError from "http-errors"
 import express from "express"
 import path from "path"
+import cors from "cors"
 import indexRouter from "./routes/index"
 
 var app = express();
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
 
+// CORS configuration
+app.use(cors({
+  origin: [
+    'http://localhost:3000', // Frontend development server
+    'http://localhost:3001', // Resolver itself
+    'http://127.0.0.1:3000', // Alternative frontend URL
+    'http://127.0.0.1:3001'  // Alternative resolver URL
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
