@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 
-function getHash(secret: string) {
+function getHash(secret: any) {
     return crypto.createHash('sha256').update(secret).digest();
 }
 

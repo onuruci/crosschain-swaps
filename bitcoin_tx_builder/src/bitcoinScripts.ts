@@ -1,6 +1,6 @@
 import * as bitcoin from 'bitcoinjs-lib';
 
-function createHashlockScript(hash: any, lockTime: any, publicKey: any) {
+function createHashlockScript(hash: any, lockTime: any, receipentPubKey: any, senderPubKey: any) {
     return bitcoin.script.compile([
         bitcoin.opcodes.OP_IF,
             bitcoin.opcodes.OP_SHA256,
@@ -8,11 +8,13 @@ function createHashlockScript(hash: any, lockTime: any, publicKey: any) {
             bitcoin.opcodes.OP_EQUALVERIFY,
         bitcoin.opcodes.OP_ELSE,
             bitcoin.script.number.encode(lockTime),
-            bitcoin.opcodes.OP_CSV,
+            bitcoin.opcodes.OP_CHECKLOCKTIMEVERIFY,
             bitcoin.opcodes.OP_DROP,
+            senderPubKey,
+            bitcoin.opcodes.OP_CHECKSIG,
         bitcoin.opcodes.OP_ENDIF,
-        publicKey,
-        bitcoin.opcodes.OP_CHECKSIG
+        receipentPubKey,
+        bitcoin.opcodes.OP_CHECKSIG,
     ]);
 }
 
