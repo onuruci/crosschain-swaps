@@ -206,10 +206,7 @@ contract AtomicSwap is ReentrancyGuard, Ownable {
             revert InvalidSecret();
         }
         
-        // Only the intended recipient can complete the swap
-        if (msg.sender != swap.recipient) {
-            revert InvalidRecipient();
-        }
+        // No recipient check - anyone with the secret can complete the swap
         
         swap.completed = true;
         

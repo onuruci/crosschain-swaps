@@ -644,8 +644,8 @@
       ]
     },
     "/Users/administrator/Desktop/crosschain-swaps/contracts/ethereum/contracts/AtomicSwap.sol": {
-      "lastModificationDate": 1753729926230,
-      "contentHash": "894df131d857e9bdc083ca429a591750",
+      "lastModificationDate": 1753820657279,
+      "contentHash": "265ebc9eeb3d0ce5230f979b79639b4b",
       "sourceName": "contracts/AtomicSwap.sol",
       "solcConfig": {
         "version": "0.8.24",

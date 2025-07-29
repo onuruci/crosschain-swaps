@@ -110,6 +110,41 @@ class ResolverService {
   }
 
   /**
+   * Complete swaps on both chains using the secret
+   */
+  async completeSwaps(hashlock: string, secret: string): Promise<any> {
+    try {
+      console.log('🔄 Completing swaps on both chains via resolver:', {
+        hashlock: hashlock.substring(0, 16) + '...',
+        secret: secret.substring(0, 16) + '...'
+      });
+
+      const response = await fetch(`${this.baseUrl}/complete/ethereum-and-aptos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          hashlock,
+          secret
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      console.log('✅ Swaps completed on both chains:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ Error completing swaps:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Check if resolver is available
    */
   async checkHealth(): Promise<boolean> {

@@ -144,4 +144,42 @@ router.post('/swap/aptos', async function(req: any, res: any, next: any) {
   }
 });
 
+// Complete swap on both chains using the secret
+router.post('/complete/ethereum-and-aptos', async function(req: any, res: any, next: any) {
+  const { hashlock, secret } = req.body;
+
+  try {
+    console.log('🔄 Completing swaps on both chains:', {
+      hashlock: hashlock.substring(0, 16) + '...',
+      secret: secret.substring(0, 16) + '...'
+    });
+
+    // Complete swap on Ethereum
+    console.log('🔗 Completing Ethereum swap...');
+    const ethereumResult = await ethereumService.completeSwap(hashlock, secret);
+    
+    // Complete swap on Aptos
+    console.log('🔗 Completing Aptos swap...');
+    const aptosResult = await aptosService.completeSwap('', hashlock, secret);
+
+    res.json({
+      "success": true,
+      "ethereum": {
+        "txHash": ethereumResult,
+        "success": true
+      },
+      "aptos": {
+        "txHash": aptosResult.hash,
+        "success": true
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error completing swaps:', error);
+    res.status(500).json({
+      "success": false,
+      "error": error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 export default router

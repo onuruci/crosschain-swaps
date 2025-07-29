@@ -26,6 +26,7 @@ import { ResolverSwapRequest, WalletConnection } from '../types';
 import { ethereumService } from '../services/ethereum';
 import { aptosService } from '../services/aptos';
 import { resolverService } from '../services/resolver';
+import { secretStore } from '../services/secretStore';
 import { swapsApi } from '../store/swapsApi';
 import { useDispatch } from 'react-redux';
 import { config } from '../config';
@@ -91,14 +92,43 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
     }));
   };
 
-  const clearAllHashlocks = () => {
-    const keys = Object.keys(localStorage);
-    const hashlockKeys = keys.filter(key => key.startsWith('swap_secret_') || key.includes('hashlock'));
-    hashlockKeys.forEach(key => {
-      localStorage.removeItem(key);
-    });
-    toast.success(`Cleared ${hashlockKeys.length} stored hashlocks`);
-    console.log('🧹 Cleared stored hashlocks:', hashlockKeys);
+  const clearAllSecrets = () => {
+    const count = secretStore.getSecretCount();
+    secretStore.clearAllSecrets();
+    toast.success(`Cleared ${count} secrets from memory`);
+    console.log('🧹 Cleared secrets from memory');
+  };
+
+  const completeSwap = async (hashlock: string) => {
+    const secret = secretStore.getSecret(hashlock);
+    if (!secret) {
+      toast.error('Secret not found for this hashlock');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      console.log('🔄 Completing swap with hashlock:', hashlock.substring(0, 16) + '...');
+      
+      const result = await resolverService.completeSwaps(hashlock, secret);
+      
+      if (result.success) {
+        // Remove the secret after successful completion
+        secretStore.removeSecret(hashlock);
+        
+        toast.success(`Swap completed successfully! Ethereum: ${result.ethereum.txHash.substring(0, 16)}..., Aptos: ${result.aptos.txHash.substring(0, 16)}...`);
+        
+        // Invalidate the swaps cache to trigger a refetch
+        dispatch(swapsApi.util.invalidateTags(['Swap']));
+      } else {
+        toast.error('Failed to complete swap');
+      }
+    } catch (error) {
+      console.error('Failed to complete swap:', error);
+      toast.error('Failed to complete swap: ' + (error as Error).message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const validateForm = async (): Promise<{ isValid: boolean; errors: string[] }> => {
@@ -226,8 +256,8 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
         }
       }
 
-      // Store the secret locally
-      localStorage.setItem(`swap_secret_${hashlock}`, secret);
+      // Store the secret in memory
+      secretStore.storeSecret(hashlock, secret);
 
       // Notify parent component
       onSwapInitiated(hashlock);
@@ -236,7 +266,8 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
       setFormData(prev => ({
         ...prev,
         inputAmount: '',
-        outputAmount: ''
+        outputAmount: '',
+        recipientAddress: ''
       }));
 
       toast.success(`Swap initiated successfully! Hashlock: ${hashlock.substring(0, 16)}... Counter swap created on ${formData.toChain}.`);
@@ -422,6 +453,41 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
             helperText="Time limit for completing the swap"
             sx={{ maxWidth: { sm: '50%' } }}
           />
+
+          {/* Stored Secrets */}
+          {secretStore.getSecretCount() > 0 && (
+            <Paper elevation={1} sx={{ p: 3, bgcolor: 'grey.50' }}>
+              <Typography variant="h6" gutterBottom>
+                Pending Swaps ({secretStore.getSecretCount()})
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {secretStore.getStoredHashlocks().map((hashlock) => (
+                  <Box key={hashlock} sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 2,
+                    p: 2,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    bgcolor: 'background.paper'
+                  }}>
+                    <Typography variant="body2" fontFamily="monospace" sx={{ flex: 1 }}>
+                      {hashlock.substring(0, 16)}...
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={() => completeSwap(hashlock)}
+                      disabled={loading}
+                    >
+                      Complete Swap
+                    </Button>
+                  </Box>
+                ))}
+              </Box>
+            </Paper>
+          )}
         </Box>
 
         <Divider sx={{ my: 3 }} />
@@ -448,7 +514,7 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
           <Button
             variant="outlined"
             size="large"
-            onClick={clearAllHashlocks}
+            onClick={clearAllSecrets}
             sx={{ 
               px: 4, 
               py: 1.5, 
@@ -457,7 +523,7 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
               minWidth: 200
             }}
           >
-            Clear Stored Hashlocks
+            Clear Stored Secrets
           </Button>
         </Box>
 

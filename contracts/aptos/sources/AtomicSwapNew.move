@@ -1,4 +1,4 @@
-module AtomicSwapNew::AtomicSwapV3 {
+module AtomicSwapNew::AtomicSwapV5 {
     use std::signer;
     use std::aptos_hash;
     use std::timestamp;
@@ -117,36 +117,33 @@ module AtomicSwapNew::AtomicSwapV3 {
         hashlock:  vector<u8>,
         secret:    vector<u8>,
     ) acquires AtomicSwapStorage {
-        let recipient_addr = signer::address_of(recipient);
+
         let storage = borrow_global_mut<AtomicSwapStorage>(@AtomicSwapNew);
 
-        // remove & fully move out the Swap resource
-        let Swap {
-            initiator: _,
-            recipient: swap_recipient,
-            amount: swap_amount,
-            timelock: swap_timelock,
-            completed: swap_completed,
-            refunded: swap_refunded,
-            coins: swap_coins,
-        } = table::remove(&mut storage.swaps, hashlock);
+        // Get the swap from storage (don't remove it)
+        let swap = table::borrow_mut(&mut storage.swaps, hashlock);
 
-        assert!(swap_recipient == recipient_addr, EINVALID_RECIPIENT);
-        assert!(!swap_completed, ESWAP_ALREADY_COMPLETED);
-        assert!(!swap_refunded,  ESWAP_ALREADY_REFUNDED);
+        // No recipient check - anyone with the secret can complete the swap
+        assert!(!swap.completed, ESWAP_ALREADY_COMPLETED);
+        assert!(!swap.refunded,  ESWAP_ALREADY_REFUNDED);
 
         // clone & hash the secret
         let expected_hash = aptos_hash::keccak256(secret);
         assert!(expected_hash == hashlock, EINVALID_SECRET);
-        assert!(timestamp::now_seconds() < swap_timelock, ECANNOT_COMPLETE);
+        assert!(timestamp::now_seconds() < swap.timelock, ECANNOT_COMPLETE);
 
         // deposit into recipient’s account
-        deposit<AptosCoin>(recipient_addr, swap_coins);
+        // Mark as completed
+        swap.completed = true;
+
+        // Get the coins and deposit into recipient's account
+        let coins = aptos_framework::coin::extract(&mut swap.coins, swap.amount);
+        deposit<AptosCoin>(swap.recipient, coins);
 
         event::emit_event(&mut storage.complete_events, SwapCompletedEvent {
             hashlock,
-            recipient: recipient_addr,
-            amount: swap_amount,
+            recipient: swap.recipient,
+            amount: swap.amount,
             secret,
         });
     }
@@ -159,29 +156,25 @@ module AtomicSwapNew::AtomicSwapV3 {
         let initiator_addr = signer::address_of(initiator);
         let storage = borrow_global_mut<AtomicSwapStorage>(@AtomicSwapNew);
 
-        // remove & fully move out the Swap resource
-        let Swap {
-            initiator: swap_initiator,
-            recipient: _,
-            amount: swap_amount,
-            timelock: swap_timelock,
-            completed: swap_completed,
-            refunded: swap_refunded,
-            coins: swap_coins,
-        } = table::remove(&mut storage.swaps, hashlock);
+        // Get the swap from storage (don't remove it)
+        let swap = table::borrow_mut(&mut storage.swaps, hashlock);
 
-        assert!(swap_initiator == initiator_addr, EINVALID_RECIPIENT);
-        assert!(!swap_completed, ESWAP_ALREADY_COMPLETED);
-        assert!(!swap_refunded,  ESWAP_ALREADY_REFUNDED);
-        assert!(timestamp::now_seconds() >= swap_timelock, ECANNOT_REFUND);
+        assert!(swap.initiator == initiator_addr, EINVALID_RECIPIENT);
+        assert!(!swap.completed, ESWAP_ALREADY_COMPLETED);
+        assert!(!swap.refunded,  ESWAP_ALREADY_REFUNDED);
+        assert!(timestamp::now_seconds() >= swap.timelock, ECANNOT_REFUND);
 
-        // return coins to initiator
-        deposit<AptosCoin>(initiator_addr, swap_coins);
+        // Mark as refunded
+        swap.refunded = true;
+
+        // Get the coins and return to initiator
+        let coins = aptos_framework::coin::extract(&mut swap.coins, swap.amount);
+        deposit<AptosCoin>(initiator_addr, coins);
 
         event::emit_event(&mut storage.refund_events, SwapRefundedEvent {
             hashlock,
             initiator: initiator_addr,
-            amount: swap_amount,
+            amount: swap.amount,
         });
     }
 

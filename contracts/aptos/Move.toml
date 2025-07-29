@@ -7,6 +7,6 @@ upgrade_policy = "compatible"
 AptosFramework = { git = "https://github.com/aptos-labs/aptos-framework.git", subdir = "aptos-framework", rev = "mainnet" }
 
 [addresses]
-AtomicSwapNew = "0x5a901138b890f9aa4da23d2742c79974ea3cafef130589dc867adc09bd690b5a"
+AtomicSwapNew = "0x4c44bda28c2389c4d1b2d91cce80a8850a9e4b9a37eef110f0b973286d5e144f"
 
 [dev-dependencies]
