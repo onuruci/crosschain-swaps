@@ -33,19 +33,49 @@ router.post('/swap/ethereum-bitcoin', async function(req: any, res: any, next: a
   // Bitcoin is the destination chain, resolver generates a new hashlocked
   // contract with maker's pubkey as the receiver
 
-  const { valueEth, hash, recepientPubKey, lockTime } = req.body;
-
-  console.log("LOCK TIME: ",lockTime)
-  console.log(hash)
-  console.log(recepientPubKey)
-  console.log(getHash('hello'))
-
   const valuesats = 100000
-  await bitcoinService.newHashlockedContractDst(recepientPubKey, hash, lockTime, valuesats)
+  const timelockbtc = 15
+  //const { valueEth, hash, recepientPubKey, lockTime } = req.body;
+
+  const { txHash, recepientPubKey, bitcoinAmount } = req.body;
+
+  console.log("VALUES")
+  console.log(txHash)
+  console.log(recepientPubKey)
+  console.log(bitcoinAmount)
+
+  const {hashlock, initiator, receipient, token, amount, timelock} = await ethereumService.parseTx(txHash)
+
+  const {txid, vout, address, lockerPubKey, hash} = await bitcoinService.newHashlockedContractDst(recepientPubKey, hashlock, timelockbtc, parseInt(bitcoinAmount))
+
+  /* 
+    txid,
+    makerBitcoinPubKey,
+  */
+
+  /*
+    needs to return success, lockerpubkey, txid, vout, address
+  */
+
+  /*
+    from the txid extract the event and related values,
+    using the related values build a hashlock in bitcoin,
+    send the hashlock's loctime, senderPubKey, amount, txid, vout
+    to the user
+  */
+
+  // generate an ethereum wallet and a bitcoin wallet for the user
+  // fund them both
 
   res.json({
     "success": true,
-    "address": ""
+    "txid": txid,
+    "vout": vout,
+    "address": address,
+    "locketPubKey": lockerPubKey.toString(),
+    "timelock": timelockbtc,
+    "amount": amount,
+    "hash": hash
   });
 })
 

@@ -16,6 +16,7 @@ class BitcoinClient {
         this.rpcPort = 18443
         this.network = network
         this.rpcUrl = `http://${this.rpcUser}:${this.rpcPassword}@${this.rpcHost}:${this.rpcPort}`;
+
     }
 
     async rpcCall(method:string, params: any[] = []) {

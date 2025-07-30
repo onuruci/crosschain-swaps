@@ -6,6 +6,8 @@ const fs = require('fs');
 import { ECPairInterface } from 'ecpair';
 import { createHashlockScript, createHashlockScriptP2Address } from './bitcoinScripts';
 import { getHash } from './utils';
+import type { DeployScriptResult } from '../types/global';
+
 
 const ECPair = ECPairFactory(ecc);
 
@@ -165,12 +167,12 @@ class Wallet {
         psbt.finalizeAllInputs();
         const rawTransaction = psbt.extractTransaction().toHex();
 
-        await this.client.broadcastTransaction(rawTransaction)
+        const txid = await this.client.broadcastTransaction(rawTransaction)
+        return txid
     }
 
-    public async deployHashlockScript(receipentPubKey: any, secretHash: any, lockTime: number, amount: number) {
+    public async deployHashlockScript(receipentPubKey: any, secretHash: any, lockTime: number, amount: number) : Promise<DeployScriptResult> {
         const network = this.network
-
 
         const hashlockScript = createHashlockScript(secretHash, lockTime, receipentPubKey, this.getPubKey());
 
@@ -179,12 +181,17 @@ class Wallet {
             network
         });
         
-        console.log("Deploying new hashlock script")
-        console.log('Hashlock Address:', p2wsh.address);
-        console.log('Script (hex):', hashlockScript.toString('hex'));
-        console.log(receipentPubKey)
-        console.log(this.getPubKey())
-        await this.buildTransaction(p2wsh.address || "", amount)
+        const txid = await this.buildTransaction(p2wsh.address || "", amount)
+
+        const res : DeployScriptResult = {
+            txid: txid,
+            vout: 0,
+            address: p2wsh.address || "",
+            lockerPubKey: this.getPubKey().toString('hex'),
+            hash: secretHash.toString('hex')
+        }
+        
+        return res
     }
 
     public async spendHashlockWithSecret(
@@ -199,7 +206,7 @@ class Wallet {
         const keyPair = this.keypair;
         const bufferPubkey = Buffer.from(keyPair.publicKey);
         const network = this.network
-        const secretHash = getHash(secret);
+        const secretHash = getHash(Buffer.from(secret));
 
         console.log('Secret (hex):', secretHash);
         console.log('Secret Hash (hex):', secretHash.toString('hex'));
