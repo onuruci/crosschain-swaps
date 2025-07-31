@@ -22,6 +22,13 @@ async function main() {
   await atomicSwap.waitForDeployment();
   console.log("AtomicSwap deployed to:", await atomicSwap.getAddress());
 
+   // Deploy Weth contract
+   console.log("\nDeploying Weth...");
+   const Weth = await ethers.getContractFactory("WETH");
+   const weth = await Weth.deploy();
+   await weth.waitForDeployment();
+   console.log("Weth deployed to:", await weth.getAddress());
+
   // Mint some tokens to the deployer for testing
   console.log("\nMinting tokens to deployer...");
   const mintAmount = ethers.parseEther("1000000"); // 1 million tokens
@@ -32,6 +39,7 @@ async function main() {
   console.log("\n=== Deployment Summary ===");
   console.log("MockERC20 Token:", await mockToken.getAddress());
   console.log("AtomicSwap Contract:", await atomicSwap.getAddress());
+  console.log("Weth Contract:", await weth.getAddress());
   console.log("Deployer Address:", deployer.address);
   console.log("Deployer Token Balance:", ethers.formatEther(await mockToken.balanceOf(deployer.address)));
 
@@ -41,7 +49,8 @@ async function main() {
     deployer: deployer.address,
     contracts: {
       MockERC20: await mockToken.getAddress(),
-      AtomicSwap: await atomicSwap.getAddress()
+      AtomicSwap: await atomicSwap.getAddress(),
+      Weth: await weth.getAddress()
     },
     timestamp: new Date().toISOString()
   };

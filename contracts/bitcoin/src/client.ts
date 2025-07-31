@@ -1,21 +1,14 @@
 import * as bitcoin from 'bitcoinjs-lib';
 import axios from 'axios';
+import config from './config';
 
 class BitcoinClient {
-    rpcUser: string
-    rpcPassword: string
-    rpcHost: string
-    rpcPort: number
     network: bitcoin.networks.Network
     rpcUrl: string
 
     constructor(network: bitcoin.networks.Network) {
-        this.rpcUser = 'bitcoin'
-        this.rpcPassword= 'secretpassword'
-        this.rpcHost = 'localhost'
-        this.rpcPort = 18443
         this.network = network
-        this.rpcUrl = `http://${this.rpcUser}:${this.rpcPassword}@${this.rpcHost}:${this.rpcPort}`;
+        this.rpcUrl = config.bitcoin.rpcUrl
     }
 
     async rpcCall(method:string, params: any[] = []) {

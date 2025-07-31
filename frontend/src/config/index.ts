@@ -4,7 +4,7 @@ export const config = {
   ethereum: {
     rpcUrl: process.env.REACT_APP_ETHEREUM_RPC_URL || 'http://127.0.0.1:8545',
     chainId: process.env.REACT_APP_ETHEREUM_CHAIN_ID || '31337',
-    contractAddress: process.env.REACT_APP_ETHEREUM_CONTRACT_ADDRESS || '0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0',
+    contractAddress: process.env.REACT_APP_ETHEREUM_CONTRACT_ADDRESS || '0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f',
     resolverAddress: process.env.REACT_APP_RESOLVER_ETHEREUM_ADDRESS!, // Hardhat account #1
   },
 

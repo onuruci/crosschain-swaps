@@ -6,20 +6,20 @@ const fs = require('fs');
 import { ECPairInterface } from 'ecpair';
 import { createHashlockScript, createHashlockScriptP2Address } from './bitcoinScripts';
 import { getHash } from './utils';
+import config from './config';
 
 const ECPair = ECPairFactory(ecc);
 
 class Wallet {
-    walletFiile: string
     address: string = ""
     privateKey: string = ""
     network: bitcoin.networks.Network
     client: BitcoinClient
     keypair: ECPairInterface
 
-    constructor(walletName: string, network: bitcoin.networks.Network, client: BitcoinClient) {
-        this.walletFiile = walletName + ".json"
-        this.readWallet(this.walletFiile)
+    constructor(network: bitcoin.networks.Network, client: BitcoinClient) {
+        this.privateKey = config.bitcoin.privateKey
+        this.address = config.bitcoin.address
         this.network = network
         this.client = client
         this.keypair = ECPair.fromWIF(this.privateKey, this.network);

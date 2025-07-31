@@ -60,6 +60,75 @@ class EthereumService {
     return this.provider;
   }
 
+  async initiateSwapSignature(
+    recipient: string, 
+    hashlock: string, 
+    timelock: number, 
+    amount: string,
+    deadlineMinutes:number = 60,
+    ): Promise<any> {
+      if (!this.contract || !this.signer || !this.provider) throw new Error('Not connected');
+    const types = {
+      InitiateSwap: [
+        { name: 'initiator', type: 'address' },
+        { name: 'hashlock', type: 'bytes32' },
+        { name: 'timelock', type: 'uint256' },
+        { name: 'recipient', type: 'address' },
+        { name: 'token', type: 'address' },
+        { name: 'amount', type: 'uint256' },
+        { name: 'nonce', type: 'uint256' },
+        { name: 'deadline', type: 'uint256' }
+      ]
+    }
+
+    const domain = {
+      name: 'AtomicSwap',
+      version: '1',
+      chainId: 0,
+      verifyingContract: await this.contract.getAddress()
+    };
+
+    const network = await this.provider.getNetwork();
+    domain.chainId = Number(network.chainId);
+
+
+    const deadline = Math.floor(Date.now() / 1000) + (deadlineMinutes * 60);
+
+    const initiator = await this.getAddress();
+    console.log("THİS ADDRESS:  ", initiator)
+    //const nonce = await this.contract.nonces(initiator);
+    const nonce = 0;
+
+    console.log("NONCE: ", nonce)
+
+    const swapData = {
+      initiator: initiator,
+      hashlock: hashlock,
+      timelock: timelock,
+      recipient: recipient,
+      amount: ethers.parseEther(amount.toString()),
+      nonce: nonce,
+      deadline: deadline
+    };
+
+    const signature = await this.signer.signTypedData(domain, types, swapData);
+
+    console.log("Signature results")
+    console.log(swapData)
+    console.log(signature)
+    console.log(timelock)
+    console.log(deadline)
+
+    return {
+        swapData: swapData,
+        signature: signature,
+        timelock: timelock,
+        deadline: deadline
+    };
+
+  }
+
+
   async initiateSwap(recipient: string, hashlock: string, timelock: number, amount: string): Promise<any> {
     if (!this.contract) throw new Error('Not connected');
     
