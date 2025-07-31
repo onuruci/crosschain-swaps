@@ -2,10 +2,10 @@
 export const config = {
   // Ethereum Configuration
   ethereum: {
-    rpcUrl: process.env.REACT_APP_ETHEREUM_RPC_URL || 'http://127.0.0.1:8545',
-    chainId: process.env.REACT_APP_ETHEREUM_CHAIN_ID || '31337',
-    contractAddress: process.env.REACT_APP_ETHEREUM_CONTRACT_ADDRESS || '0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0',
-    resolverAddress: process.env.REACT_APP_RESOLVER_ETHEREUM_ADDRESS!, // Hardhat account #1
+    rpcUrl: process.env.REACT_APP_ETHEREUM_RPC_URL || 'https://sepolia.infura.io/v3/YOUR_INFURA_PROJECT_ID',
+    chainId: process.env.REACT_APP_ETHEREUM_CHAIN_ID || '11155111',
+    contractAddress: process.env.REACT_APP_ETHEREUM_CONTRACT_ADDRESS || '0x6b6888b50E24E457faF89D6ed7F9726a177BA741',
+    resolverAddress: process.env.REACT_APP_RESOLVER_ETHEREUM_ADDRESS || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
   },
 
   // Aptos Configuration
