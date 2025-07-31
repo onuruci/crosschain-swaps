@@ -108,16 +108,17 @@ class EthereumService {
     try {
       console.log('🔗 Initiating Ethereum swap:', {
         recipient,
-        hashlock: hashlock.substring(0, 16) + '...',
+        hashlock: "0x"+hashlock,
         timelock,
         amount
       });
 
       const tx = await this.contract.initiateSwap(
-        recipient,
-        hashlock,
+        "0x"+hashlock,
         timelock,
-        { value: ethers.parseEther(amount) }
+        recipient,
+        100,
+        { value: 100 }
       );
 
       const receipt = await tx.wait();
@@ -190,6 +191,17 @@ class EthereumService {
       throw new Error('Ethereum service not available');
     }
     return this.wallet.address;
+  }
+
+  public async getCurrentEpoch(): Promise<number> {
+    if (!this.provider) {
+      throw new Error('Ethereum service not available');
+    }
+    const currentBlock = await this.provider.getBlock('latest');
+    if (!currentBlock) {
+      throw new Error('Could not get current block');
+    }
+    return currentBlock.timestamp;
   }
 }
 

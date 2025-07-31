@@ -19,6 +19,10 @@ class BitcoinService {
         return this.wallet.getAddress()
     }
 
+    public publicKey() {
+        return this.wallet.getPubKey()
+    }
+
     public async newHashlockedContractDst(recepientPukKey: string, secretHash: string, lockTime: number, amount: number) {
         console.log(this.client.rpcUrl)
         const bufferedPubKey = Buffer.from(recepientPukKey, 'hex')

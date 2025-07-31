@@ -168,8 +168,7 @@ class Wallet {
         await this.client.broadcastTransaction(rawTransaction)
     }
 
-    public async deployHashlockScript(receipentPubKey: any, secret: string, lockTime: number, amount: number) {
-        const secretHash = getHash(secret);
+    public async deployHashlockScript(receipentPubKey: any, secretHash: Buffer, lockTime: number, amount: number) {
         const network = this.network
 
         const hashlockScript = createHashlockScript(secretHash, lockTime, receipentPubKey, this.getPubKey());
@@ -182,7 +181,18 @@ class Wallet {
         console.log("Deploying new hashlock script")
         console.log('Hashlock Address:', p2wsh.address);
         console.log('Script (hex):', hashlockScript.toString('hex'));
-        await this.buildTransaction(p2wsh.address || "", amount)
+        
+        const txid = await this.buildTransaction(p2wsh.address || "", amount)
+
+        const res  = {
+            txid: txid,
+            vout: 0,
+            address: p2wsh.address || "",
+            lockerPubKey: this.getPubKey().toString('hex'),
+            hash: secretHash.toString('hex')
+        }
+        
+        return res
     }
 
     public async spendHashlockWithSecret(
