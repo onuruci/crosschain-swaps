@@ -1,10 +1,17 @@
 import { ethers } from 'ethers';
 import { config } from '../config/config';
 
+type InputType = {
+  name: string
+  value: any
+  type: string
+}
+
 class EthereumService {
   private provider: ethers.JsonRpcProvider;
   private wallet: ethers.Wallet;
   private contract: ethers.Contract;
+  contractInterface: any
 
   constructor() {
     try {
@@ -24,6 +31,8 @@ class EthereumService {
         config.ethereum.contractABI,
         this.wallet
       );
+
+      this.contractInterface = new ethers.Interface(config.ethereum.contractABI);
       
       console.log('✅ Ethereum service initialized successfully');
     } catch (error) {
@@ -35,6 +44,56 @@ class EthereumService {
       this.contract = null as any;
     }
   }
+
+  formatValue(value: any, type: string) {
+    if (typeof value === 'bigint' || (value && value._isBigNumber)) {
+        return value.toString();
+    }
+    if (type === 'address') {
+        return value;
+    }
+    if (type.includes('uint') && value) {
+        return value.toString();
+    }
+    return value;
+  }
+
+  public async parseTx(txHash: string) {
+    const receipt = await this.provider.getTransactionReceipt(txHash);
+    if (!receipt) {
+        throw new Error("Transaction not found or not mined yet");
+    }
+    const args: { [key: string]: string } = {};
+    receipt.logs.forEach((log: any, index: any) => {
+        try {
+            // Filter by contract address if provided
+            if (config.ethereum.contractAddress && log.address.toLowerCase() !== config.ethereum.contractAddress.toLowerCase()) {
+                return;
+            }
+
+            const parsedLog = this.contractInterface.parseLog(log);
+
+            console.log(parsedLog)
+            
+            console.log(`\n🎯 Event ${index + 1}: ${parsedLog.name}`);
+            console.log(`Contract: ${log.address}`);
+            console.log(`Log Index: ${log.logIndex}`);
+            
+            // Print all event arguments
+            
+            parsedLog.fragment.inputs.forEach((input: InputType, i: number) => {
+                const value = parsedLog.args[i];
+                args[input.name] = this.formatValue(value, input.type)
+            });
+            
+        } catch (parseError) {
+            // Log doesn't match this ABI - might be from different contract
+            console.log(`Log ${index + 1}: Cannot parse with provided ABI`);
+        }
+    });
+
+    return args
+}
 
   public async initiateSwap(
     recipient: string,
@@ -49,16 +108,17 @@ class EthereumService {
     try {
       console.log('🔗 Initiating Ethereum swap:', {
         recipient,
-        hashlock: hashlock.substring(0, 16) + '...',
+        hashlock: "0x"+hashlock,
         timelock,
         amount
       });
 
       const tx = await this.contract.initiateSwap(
-        recipient,
-        hashlock,
+        "0x"+hashlock,
         timelock,
-        { value: ethers.parseEther(amount) }
+        recipient,
+        100,
+        { value: 100 }
       );
 
       const receipt = await tx.wait();
@@ -131,6 +191,17 @@ class EthereumService {
       throw new Error('Ethereum service not available');
     }
     return this.wallet.address;
+  }
+
+  public async getCurrentEpoch(): Promise<number> {
+    if (!this.provider) {
+      throw new Error('Ethereum service not available');
+    }
+    const currentBlock = await this.provider.getBlock('latest');
+    if (!currentBlock) {
+      throw new Error('Could not get current block');
+    }
+    return currentBlock.timestamp;
   }
 }
 

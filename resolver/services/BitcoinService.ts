@@ -19,10 +19,24 @@ class BitcoinService {
         return this.wallet.getAddress()
     }
 
+    public publicKey() {
+        return this.wallet.getPubKey()
+    }
+
     public async newHashlockedContractDst(recepientPukKey: string, secretHash: string, lockTime: number, amount: number) {
+        console.log(this.client.rpcUrl)
         const bufferedPubKey = Buffer.from(recepientPukKey, 'hex')
 
-        await this.wallet.deployHashlockScript(bufferedPubKey, Buffer.from(secretHash, 'hex'), lockTime, amount)
+        let secretHashBuffered = Buffer.from(secretHash, 'hex')
+        if("0x" === secretHash.slice(0,2)) {
+            secretHashBuffered = Buffer.from(secretHash.slice(2), 'hex')
+        }
+
+        console.log("SECRET HASH BUFFERED:  ", secretHashBuffered)
+
+        const res = await this.wallet.deployHashlockScript(bufferedPubKey, secretHashBuffered, lockTime, amount)
+
+        return res
     }
 
     public async completeSwap(

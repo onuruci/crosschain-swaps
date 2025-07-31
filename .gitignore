@@ -1,5 +1,4 @@
 node_modules/
-resolverWallet.json
 build/
 dist/
 *.txt

@@ -422,7 +422,9 @@
     "deploy:local": "hardhat run scripts/deploy.js --network localhost",
     "verify": "hardhat run scripts/verify-deployment.js",
     "node": "hardhat node",
-    "clean": "hardhat clean"
+    "clean": "hardhat clean",
+    "makeswap": "hardhat run scripts/makeSwapUser.js",
+    "gettxvalues": "hardhat run scripts/fromTxGetValues.js"
   },
   "keywords": [],
   "author": "",
