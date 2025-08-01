@@ -6,6 +6,7 @@ export const config = {
     chainId: process.env.REACT_APP_ETHEREUM_CHAIN_ID!,
     contractAddress: process.env.REACT_APP_ETHEREUM_CONTRACT_ADDRESS!,
     resolverAddress: process.env.REACT_APP_RESOLVER_ETHEREUM_ADDRESS!, // Hardhat account #1
+    wethAddress: process.env.REACT_APP_WETH_ADDRESS!, // WETH contract address
   },
 
   // Aptos Configuration

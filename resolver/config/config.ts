@@ -20,7 +20,8 @@ function getConfig() {
     rpcUrl: process.env.ETHEREUM_RPC_URL || 'http://127.0.0.1:8545',
     privateKey: process.env.ETHEREUM_PRIVATE_KEY!,
     contractAddress: process.env.ETHEREUM_CONTRACT_ADDRESS!,
-    contractABI: ATOMIC_SWAP_ABI
+    contractABI: ATOMIC_SWAP_ABI,
+    wethAddress: process.env.WETH_ADDRESS!
   },
 
   // Aptos Configuration
