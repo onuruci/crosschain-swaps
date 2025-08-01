@@ -7,13 +7,9 @@ module.exports = {
     hardhat: {
     },
     sepolia: {
-      url: process.env.SEPOLIA_URL || "",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      url: "https://eth-sepolia.g.alchemy.com/public",
+      accounts: ["0x59ba7363a3bdac51618867a68c7bdc156fd2d3ffe8ae3fe5c1181a0fdabe601b"],
     },
-    goerli: {
-      url: process.env.GOERLI_URL || "",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-    }
   },
   paths: {
     sources: "./contracts",
