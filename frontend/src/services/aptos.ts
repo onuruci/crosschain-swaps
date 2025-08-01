@@ -1,5 +1,7 @@
 import { AccountAddress, Aptos, AptosConfig, Network } from '@aptos-labs/ts-sdk';
 import { config } from '../config';
+import 'petra-wallet-types';
+
 
 class AptosService {
   private aptos: Aptos | null = null;
@@ -31,7 +33,7 @@ class AptosService {
 
   async disconnect() {
     if (window.aptos) {
-      await window.aptos.disconnect();
+      window.aptos.disconnect();
     }
     this.aptos = null;
     this.accountAddress = null;
@@ -80,6 +82,7 @@ class AptosService {
       if (!swapBookExists) {
         console.log('Initializing SwapBook resource...');
         const payload = {
+          type: 'entry_function_payload',
           function: `${this.contractAddress}::${this.moduleName}::init`,
           type_arguments: [],
           arguments: [],
@@ -105,6 +108,7 @@ class AptosService {
     const amountNumber = Math.floor(parseFloat(amount) * 100000000); // Convert to octas (8 decimal places)
     
     const payload = {
+      type: 'entry_function_payload',
       function: `${this.contractAddress}::${this.moduleName}::initiate_swap`,
       type_arguments: [],
       arguments: [hashlockBytes, timelock.toString(), recipient, amountNumber.toString()],
@@ -113,33 +117,11 @@ class AptosService {
     };
     
     console.log('Initiating Aptos swap with payload:', payload);
-    const tx = await window.aptos.signAndSubmitTransaction(payload);
+    const tx = await window.aptos.signMessage({message: JSON.stringify(payload), nonce: '0'});
     return tx;
   }
 
-  async completeSwap(initiator: string, hashlock: string, secret: string): Promise<any> {
-    if (!this.aptos || !this.accountAddress || !window.aptos) throw new Error('Not connected');
-    
-    try {
-      // Convert hashlock and secret to byte arrays
-      const hashlockBytes = this.hexToBytes(hashlock);
-      const secretBytes = this.hexToBytes(secret);
-      
-      console.log('Completing Aptos swap directly...');
-      const completePayload = {
-        function: `${this.contractAddress}::${this.moduleName}::complete_swap`,
-        type_arguments: [],
-        arguments: [hashlockBytes, secretBytes], // Only pass hashlock and secret (recipient is the signer)
-        max_gas_amount: 2000000, // Set explicit gas limit
-        gas_unit_price: 100 // Set gas unit price
-      };
-      const tx = await window.aptos.signAndSubmitTransaction(completePayload);
-      return tx;
-    } catch (error) {
-      console.error('Error completing swap:', error);
-      throw error;
-    }
-  }
+ 
 
   async refundSwap(hashlock: string): Promise<any> {
     if (!this.aptos || !this.accountAddress || !window.aptos) throw new Error('Not connected');
@@ -148,9 +130,10 @@ class AptosService {
     const hashlockBytes = this.hexToBytes(hashlock);
     
     const payload = {
+      type: 'entry_function_payload',
       function: `${this.contractAddress}::${this.moduleName}::refund_swap`,
       type_arguments: [],
-      arguments: [hashlockBytes],
+      arguments: [this.bytesToHex(hashlockBytes)],
       max_gas_amount: 2000000, // Set explicit gas limit
       gas_unit_price: 100 // Set gas unit price
     };
@@ -224,22 +207,10 @@ class AptosService {
     }
     return bytes;
   }
-}
 
-declare global {
-  interface Window {
-    aptos?: {
-      connect: () => Promise<void>;
-      disconnect: () => Promise<void>;
-      account: () => Promise<{ address: string; publicKey: string }>;
-      signAndSubmitTransaction: (transaction: {
-        function: string;
-        type_arguments: any[];
-        arguments: any[];
-        max_gas_amount?: number;
-        gas_unit_price?: number;
-      }) => Promise<any>;
-    };
+  // Helper function to convert byte array to hex string
+  private bytesToHex(bytes: Uint8Array): string {
+    return '0x' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
   }
 }
 
