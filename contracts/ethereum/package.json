@@ -425,7 +425,8 @@
     "clean": "hardhat clean",
     "makeswap": "hardhat run scripts/makeSwapUser.js",
     "gettxvalues": "hardhat run scripts/fromTxGetValues.js",
-    "ethtoweth": "hardhat run scripts/ethToWeth.js"
+    "ethtoweth": "hardhat run scripts/ethToWeth.js",
+    "errorcheck": "node scripts/errorCheck.js"
   },
   "keywords": [],
   "author": "",

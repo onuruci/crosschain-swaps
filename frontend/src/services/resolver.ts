@@ -68,30 +68,25 @@ class ResolverService {
   /**
    * Call resolver to create a counter swap on Aptos
    */
-  async createAptosCounterSwap(
-    hashlock: string,
-    makerAddress: string,
-    timelock: number,
-    amount: string
+async createAptosCounterSwap(
+    swapData: any,
+    signature: any,
+    aptosRecipientAddress: string,
+    aptosAmount: string
   ): Promise<ResolverSwapResponse> {
     try {
-      console.log('🔄 Calling resolver for Aptos counter swap:', {
-        hashlock: hashlock.substring(0, 16) + '...',
-        makerAddress,
-        timelock,
-        amount
-      });
-
+      console.log("META DATA:  ", swapData)
+      console.log("SIGNATURE:  ", signature)
       const response = await fetch(`${this.baseUrl}/swap/aptos`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          hashlock,
-          makerAddress,
-          timelock,
-          amount
+          signature,
+          swapData,
+          aptosRecipientAddress,
+          aptosAmount
         }),
       });
 

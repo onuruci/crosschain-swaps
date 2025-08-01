@@ -142,22 +142,20 @@ contract AtomicSwap is ReentrancyGuard, Ownable {
      * @dev Meta-transaction version of initiateSwap - allows gasless swap initiation
      * @param metaData The swap initiation data signed by the user
      * @param signature The user's signature
-     * @param useDeposited Whether to use deposited ETH for ETH swaps
      */
     function initiateSwapMeta(
         InitiateSwapMeta calldata metaData,
-        bytes calldata signature,
-        bool useDeposited
+        bytes calldata signature
     ) external payable nonReentrant {
         // Verify signature deadline
         if (block.timestamp > metaData.deadline) {
             revert SignatureExpired();
         }
         
-        // Verify nonce
-        if (metaData.nonce != nonces[metaData.initiator]) {
-            revert InvalidNonce();
-        }
+        // // Verify nonce
+        // if (metaData.nonce != nonces[metaData.initiator]) {
+        //     revert InvalidNonce();
+        
         
         // Create signature hash
         bytes32 structHash = keccak256(
@@ -194,12 +192,7 @@ contract AtomicSwap is ReentrancyGuard, Ownable {
         nonces[metaData.initiator]++;
         
         // Execute the swap initiation
-        _initiateSwapHelper(
-            metaData.hashlock,
-            metaData.timelock,
-            metaData.recipient,
-            metaData.amount
-        );
+        _initiateSwap(metaData.hashlock, metaData.timelock, metaData.recipient, address(0), metaData.amount);
     }
 
     function _initiateSwapHelper(

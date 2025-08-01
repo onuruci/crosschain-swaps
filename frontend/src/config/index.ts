@@ -2,15 +2,15 @@
 export const config = {
   // Ethereum Configuration
   ethereum: {
-    rpcUrl: process.env.REACT_APP_ETHEREUM_RPC_URL || 'http://127.0.0.1:8545',
-    chainId: process.env.REACT_APP_ETHEREUM_CHAIN_ID || '31337',
-    contractAddress: process.env.REACT_APP_ETHEREUM_CONTRACT_ADDRESS || '0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f',
+    rpcUrl: process.env.REACT_APP_ETHEREUM_RPC_URL!,
+    chainId: process.env.REACT_APP_ETHEREUM_CHAIN_ID!,
+    contractAddress: process.env.REACT_APP_ETHEREUM_CONTRACT_ADDRESS!,
     resolverAddress: process.env.REACT_APP_RESOLVER_ETHEREUM_ADDRESS!, // Hardhat account #1
   },
 
   // Aptos Configuration
   aptos: {
-    nodeUrl: process.env.REACT_APP_APTOS_NODE_URL || 'https://fullnode.testnet.aptoslabs.com',
+    nodeUrl: process.env.REACT_APP_APTOS_NODE_URL!,
     chainId: process.env.REACT_APP_APTOS_CHAIN_ID!,
     contractAddress: process.env.REACT_APP_APTOS_CONTRACT_ADDRESS!,
     moduleName: process.env.REACT_APP_APTOS_MODULE_NAME || 'AtomicSwapV5',

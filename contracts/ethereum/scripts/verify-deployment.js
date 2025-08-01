@@ -8,24 +8,14 @@ async function main() {
   const ATOMIC_SWAP_ADDRESS = "0x..."; // Replace with actual address
 
   // Get contract instances
-  const MockERC20 = await ethers.getContractFactory("MockERC20");
   const AtomicSwap = await ethers.getContractFactory("AtomicSwap");
 
-  const mockToken = MockERC20.attach(MOCK_TOKEN_ADDRESS);
   const atomicSwap = AtomicSwap.attach(ATOMIC_SWAP_ADDRESS);
 
   // Get signers
   const [deployer] = await ethers.getSigners();
 
   console.log("=== Contract Verification ===");
-  
-  // Verify MockERC20
-  console.log("\n--- MockERC20 Verification ---");
-  console.log("Token Name:", await mockToken.name());
-  console.log("Token Symbol:", await mockToken.symbol());
-  console.log("Total Supply:", ethers.utils.formatEther(await mockToken.totalSupply()));
-  console.log("Deployer Balance:", ethers.utils.formatEther(await mockToken.balanceOf(deployer.address)));
-  console.log("Owner:", await mockToken.owner());
 
   // Verify AtomicSwap
   console.log("\n--- AtomicSwap Verification ---");

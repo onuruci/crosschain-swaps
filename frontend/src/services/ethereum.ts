@@ -62,9 +62,11 @@ class EthereumService {
 
   async initiateSwapSignature(
     recipient: string, 
+    aptosRecipientAddress: string,
     hashlock: string, 
     timelock: number, 
     amount: string,
+    aptosAmount: string,
     deadlineMinutes:number = 60,
     ): Promise<any> {
       if (!this.contract || !this.signer || !this.provider) throw new Error('Not connected');
@@ -106,7 +108,8 @@ class EthereumService {
       hashlock: hashlock,
       timelock: timelock,
       recipient: recipient,
-      amount: ethers.parseEther(amount.toString()),
+      token: "0x0000000000000000000000000000000000000000",
+      amount: ethers.parseEther(amount.toString()).toString(),
       nonce: nonce,
       deadline: deadline
     };
@@ -122,8 +125,8 @@ class EthereumService {
     return {
         swapData: swapData,
         signature: signature,
-        timelock: timelock,
-        deadline: deadline
+        aptosRecipientAddress: aptosRecipientAddress,
+        aptosAmount: aptosAmount,
     };
 
   }

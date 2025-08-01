@@ -573,11 +573,6 @@ export const ATOMIC_SWAP_ABI = [
         "internalType": "bytes",
         "name": "signature",
         "type": "bytes"
-      },
-      {
-        "internalType": "bool",
-        "name": "useDeposited",
-        "type": "bool"
       }
     ],
     "name": "initiateSwapMeta",

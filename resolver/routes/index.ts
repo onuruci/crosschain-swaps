@@ -179,31 +179,43 @@ router.post('/swap/ethereum', async function(req: any, res: any, next: any) {
   }
 });
 
+
 router.post('/swap/aptos', async function(req: any, res: any, next: any) {
   // Create counter swap on Aptos
   // Parameters: hashlock, maker address, timelock
-  const { hashlock, makerAddress, timelock, amount } = req.body;
+  console.log("REQ BODY")
+  const { signature, swapData, aptosRecipientAddress, aptosAmount } = req.body;
 
+  console.log("SIGNATURE")
+  console.log(signature)
+  console.log(swapData)
+
+  swapData.amount = BigInt(swapData.amount)
   try {
-    console.log('🔄 Creating counter swap on Aptos:', {
-      hashlock: hashlock.substring(0, 16) + '...',
-      makerAddress,
-      timelock,
-      amount
-    });
-
-    const result = await aptosService.initiateSwap(
-      makerAddress,
-      hashlock,
-      timelock,
-      amount
+    const ethereumResult = await ethereumService.initiateSwapSignature(
+      swapData,
+      signature,
     );
+
+    const aptosResult = await aptosService.initiateSwap(
+      aptosRecipientAddress,
+      swapData.hashlock,
+      swapData.timelock,
+      aptosAmount
+    );
+
+    console.log("ETHEREUM RESULT")
+    console.log(ethereumResult)
+    console.log("APTOS RESULT")
+    console.log(aptosResult)
+
 
     res.json({
       "success": true,
-      "txHash": result.hash,
-      "address": await aptosService.getAddress()
+      "ethereumTxHash": ethereumResult,
+      "aptosTxHash": aptosResult
     });
+
   } catch (error) {
     console.error('❌ Error creating Aptos counter swap:', error);
     res.status(500).json({
@@ -212,6 +224,7 @@ router.post('/swap/aptos', async function(req: any, res: any, next: any) {
     });
   }
 });
+
 
 // Complete swap on both chains using the secret
 router.post('/complete/ethereum-and-aptos', async function(req: any, res: any, next: any) {
