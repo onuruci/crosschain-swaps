@@ -1,13 +1,15 @@
 import { ethers } from 'ethers';
 import { config } from '../config';
-import { ATOMIC_SWAP_ABI } from '../config/contract-abi';
+import { ATOMIC_SWAP_ABI, WETH_ABI } from '../config/contract-abi';
 
 class EthereumService {
   private provider: ethers.BrowserProvider | null = null;
   private signer: ethers.JsonRpcSigner | null = null;
   // Contract address from configuration
   private contractAddress: string = config.ethereum.contractAddress;
+  private wethAddress: string = config.ethereum.wethAddress;
   public contract: ethers.Contract | null = null;
+  public wethContract: ethers.Contract | null = null;
 
   async connect(): Promise<string> {
     if (!window.ethereum) {
@@ -30,10 +32,9 @@ class EthereumService {
       console.warn('Current Chain ID:', network.chainId.toString());
     }
     
-    // Use ABI from local config
-    const contractABI = ATOMIC_SWAP_ABI;
     
-    this.contract = new ethers.Contract(this.contractAddress, contractABI, this.signer);
+    this.contract = new ethers.Contract(this.contractAddress, ATOMIC_SWAP_ABI, this.signer);
+    this.wethContract = new ethers.Contract(this.wethAddress, WETH_ABI, this.signer);
     
     const address = await this.signer.getAddress();
     return address;
@@ -54,6 +55,62 @@ class EthereumService {
     if (!this.signer) throw new Error('Not connected');
     const balance = await this.signer.provider.getBalance(await this.signer.getAddress());
     return ethers.formatEther(balance);
+  }
+
+  async getWethBalance(): Promise<string> {
+    if (!this.wethContract || !this.signer) throw new Error('Not connected');
+    const address = await this.signer.getAddress();
+    const balance = await this.wethContract.balanceOf(address);
+    return ethers.formatEther(balance);
+  }
+
+  async convertEthToWeth(amount: string): Promise<any> {
+    if (!this.wethContract || !this.signer) throw new Error('Not connected');
+    
+    const amountWei = ethers.parseEther(amount);
+    console.log('🔄 Converting ETH to WETH:', {
+      amount: amount,
+      amountWei: amountWei.toString()
+    });
+    
+    try {
+      const tx = await this.wethContract.deposit({ value: amountWei });
+      console.log('✅ WETH deposit transaction sent:', tx.hash);
+      const receipt = await tx.wait();
+      console.log('✅ WETH deposit confirmed:', receipt?.blockNumber);
+      return receipt;
+    } catch (error) {
+      console.error('❌ WETH deposit failed:', error);
+      throw error;
+    }
+  }
+
+  async approveWethForAtomicSwap(amount: string): Promise<any> {
+    if (!this.wethContract || !this.contract) throw new Error('Not connected');
+    
+    const amountWei = ethers.parseEther(amount);
+    console.log('🔐 Approving WETH for AtomicSwap contract:', {
+      amount: amount,
+      amountWei: amountWei.toString(),
+      contractAddress: this.contractAddress
+    });
+    
+    try {
+      const tx = await this.wethContract.approve(this.contractAddress, amountWei);
+      console.log('✅ WETH approval transaction sent:', tx.hash);
+      const receipt = await tx.wait();
+      console.log('✅ WETH approval confirmed:', receipt?.blockNumber);
+      return receipt;
+    } catch (error) {
+      console.error('❌ WETH approval failed:', error);
+      throw error;
+    }
+  }
+
+  async checkWethAllowance(owner: string, spender: string): Promise<string> {
+    if (!this.wethContract) throw new Error('Not connected');
+    const allowance = await this.wethContract.allowance(owner, spender);
+    return ethers.formatEther(allowance);
   }
 
   get providerInstance(): ethers.BrowserProvider | null {
@@ -108,7 +165,7 @@ class EthereumService {
       hashlock: hashlock,
       timelock: timelock,
       recipient: recipient,
-      token: "0x0000000000000000000000000000000000000000",
+      token: this.wethAddress, // Use WETH address instead of ETH
       amount: ethers.parseEther(amount.toString()).toString(),
       nonce: nonce,
       deadline: deadline

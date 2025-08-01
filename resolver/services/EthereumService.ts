@@ -99,9 +99,10 @@ class EthereumService {
     swapData: any,
     signature: any
   ): Promise<string> {
-    return this.contract.initiateSwapMeta(swapData, signature, 
-      {value: swapData.amount}
-    );
+    // For WETH swaps, we don't send ETH value since WETH is transferred via transferFrom
+    // The user has already approved the contract to spend their WETH
+    const amount = BigInt(swapData.amount)
+    return this.contract.initiateSwapMeta(swapData, signature, {value: amount});
   }
 
   public async initiateSwap(
@@ -122,12 +123,17 @@ class EthereumService {
         amount
       });
 
-      const tx = await this.contract.initiateSwap(
+      // For the new WETH-based flow, we need to use initiateTokenSwap
+      // The resolver will send ETH from its account but receive WETH from the user
+      const amountWei = ethers.parseEther(amount);
+      
+      // Use initiateTokenSwap for WETH (the resolver needs to have WETH to send)
+      const tx = await this.contract.initiateTokenSwap(
         "0x"+hashlock,
         timelock,
         recipient,
-        100,
-        { value: 100 }
+        config.ethereum.wethAddress, // Use WETH address
+        amountWei, {value: amountWei}
       );
 
       const receipt = await tx.wait();

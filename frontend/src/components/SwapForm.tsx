@@ -15,11 +15,23 @@ import {
   Divider,
   IconButton,
   Tooltip,
-  Paper
+  Paper,
+  LinearProgress,
+  Stepper,
+  Step,
+  StepLabel,
+  StepContent,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import {
   SwapHoriz as SwapIcon,
-  Info as InfoIcon
+  Info as InfoIcon,
+  CheckCircle as CheckIcon,
+  Schedule as ScheduleIcon,
+  Error as ErrorIcon
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import { ResolverSwapRequest, WalletConnection } from '../types';
@@ -36,6 +48,18 @@ interface SwapFormProps {
   onSwapInitiated: (hashlock: string) => void;
 }
 
+// Step status type
+type StepStatus = 'pending' | 'in-progress' | 'completed' | 'error';
+
+// Step interface
+interface SwapStep {
+  id: string;
+  title: string;
+  description: string;
+  status: StepStatus;
+  error?: string;
+}
+
 const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }) => {
   const [formData, setFormData] = useState<ResolverSwapRequest>({
     fromChain: 'ethereum',
@@ -50,8 +74,156 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
   const [loading, setLoading] = useState(false);
   const [resolverStatus, setResolverStatus] = useState<'checking' | 'healthy' | 'unhealthy'>('checking');
   
+  // Waiting screen state
+  const [showWaitingScreen, setShowWaitingScreen] = useState(false);
+  const [swapSteps, setSwapSteps] = useState<SwapStep[]>([
+    {
+      id: 'convert-eth',
+      title: 'Convert ETH to WETH',
+      description: 'Converting your ETH to WETH tokens',
+      status: 'pending'
+    },
+    {
+      id: 'approve-weth',
+      title: 'Approve WETH Spending',
+      description: 'Granting permission to spend your WETH',
+      status: 'pending'
+    },
+    {
+      id: 'sign-transaction',
+      title: 'Sign Transaction',
+      description: 'Signing the swap transaction for the resolver',
+      status: 'pending'
+    }
+  ]);
+  
   // Get the dispatch function to invalidate cache
   const dispatch = useDispatch();
+
+  // Helper function to update step status
+  const updateStepStatus = (stepId: string, status: StepStatus, error?: string) => {
+    setSwapSteps(prev => prev.map(step => 
+      step.id === stepId 
+        ? { ...step, status, error } 
+        : step
+    ));
+  };
+
+  // Helper function to reset all steps
+  const resetSteps = () => {
+    setSwapSteps(prev => prev.map(step => ({
+      ...step,
+      status: 'pending' as StepStatus,
+      error: undefined
+    })));
+  };
+
+  // Get current progress percentage
+  const getProgressPercentage = () => {
+    const completedSteps = swapSteps.filter(step => step.status === 'completed').length;
+    return (completedSteps / swapSteps.length) * 100;
+  };
+
+
+
+  // Waiting Screen Component
+  const WaitingScreen = () => (
+    <Dialog 
+      open={showWaitingScreen} 
+      maxWidth="sm" 
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 3,
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          color: 'white'
+        }
+      }}
+    >
+      <DialogTitle sx={{ textAlign: 'center', pb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
+          <SwapIcon sx={{ fontSize: 40, mr: 2 }} />
+          <Typography variant="h5" fontWeight="bold">
+            Processing Ethereum Swap
+          </Typography>
+        </Box>
+        <Typography variant="body2" sx={{ opacity: 0.9 }}>
+          Please wait while we process your swap request...
+        </Typography>
+      </DialogTitle>
+      
+      <DialogContent sx={{ pb: 3 }}>
+        {/* Progress Bar */}
+        <Box sx={{ mb: 4 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+            <Typography variant="body2" sx={{ opacity: 0.9 }}>
+              Progress
+            </Typography>
+            <Typography variant="body2" sx={{ opacity: 0.9 }}>
+              {Math.round(getProgressPercentage())}%
+            </Typography>
+          </Box>
+          <LinearProgress 
+            variant="determinate" 
+            value={getProgressPercentage()} 
+            sx={{ 
+              height: 8, 
+              borderRadius: 4,
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              '& .MuiLinearProgress-bar': {
+                backgroundColor: '#4CAF50',
+                borderRadius: 4
+              }
+            }} 
+          />
+        </Box>
+
+        {/* Steps */}
+        <Stepper orientation="vertical" sx={{ 
+          '& .MuiStepLabel-root': { color: 'white' },
+          '& .MuiStepLabel-label': { color: 'white' },
+          '& .MuiStepLabel-labelContainer': { color: 'white' }
+        }}>
+          {swapSteps.map((step, index) => (
+            <Step key={step.id} active={step.status === 'in-progress'} completed={step.status === 'completed'}>
+              <StepLabel
+                StepIconComponent={({ active, completed }) => {
+                  if (completed) {
+                    return <CheckIcon sx={{ color: '#4CAF50', fontSize: 24 }} />;
+                  } else if (active) {
+                    return <ScheduleIcon sx={{ color: '#FF9800', fontSize: 24 }} />;
+                  } else if (step.status === 'error') {
+                    return <ErrorIcon sx={{ color: '#F44336', fontSize: 24 }} />;
+                  } else {
+                    return <ScheduleIcon sx={{ color: 'rgba(255,255,255,0.5)', fontSize: 24 }} />;
+                  }
+                }}
+              >
+                <Box>
+                  <Typography variant="subtitle1" fontWeight="bold">
+                    {step.title}
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.8, mt: 0.5 }}>
+                    {step.description}
+                  </Typography>
+                  {step.status === 'in-progress' && (
+                    <Typography variant="body2" sx={{ color: '#FF9800', mt: 0.5, fontStyle: 'italic' }}>
+                      Processing...
+                    </Typography>
+                  )}
+                  {step.status === 'error' && step.error && (
+                    <Typography variant="body2" sx={{ color: '#F44336', mt: 0.5 }}>
+                      Error: {step.error}
+                    </Typography>
+                  )}
+                </Box>
+              </StepLabel>
+            </Step>
+          ))}
+        </Stepper>
+      </DialogContent>
+    </Dialog>
+  );
 
   // Check resolver health on component mount
   useEffect(() => {
@@ -205,32 +377,79 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
 
       // Initiate swap on the source chain using resolver address
       if (formData.fromChain === 'ethereum') {
-        const swapres = await ethereumService.initiateSwapSignature(
-          resolverAddress,
-          formData.recipientAddress,
-          hashlock,
-          timelock,
-          formData.inputAmount,
-          formData.outputAmount,
-        );
+        // Show waiting screen and reset steps
+        setShowWaitingScreen(true);
+        resetSteps();
+        
+        try {
+          // Step 1: Convert ETH to WETH
+          console.log('🔄 Starting new ETH→WETH swap flow...');
+          updateStepStatus('convert-eth', 'in-progress');
+          
+          console.log('📥 Converting ETH to WETH...');
+          await ethereumService.convertEthToWeth(formData.inputAmount);
+          updateStepStatus('convert-eth', 'completed');
+          toast.success('ETH converted to WETH successfully');
+          
+          // Step 2: Approve WETH spending for AtomicSwap contract
+          console.log('🔐 Approving WETH spending for AtomicSwap contract...');
+          updateStepStatus('approve-weth', 'in-progress');
+          
+          await ethereumService.approveWethForAtomicSwap(formData.inputAmount);
+          updateStepStatus('approve-weth', 'completed');
+          toast.success('WETH approval granted to AtomicSwap contract');
+          
+          // Step 3: Sign the transaction for resolver
+          console.log('✍️ Signing transaction for resolver...');
+          updateStepStatus('sign-transaction', 'in-progress');
+          
+          const swapres = await ethereumService.initiateSwapSignature(
+            resolverAddress,
+            formData.recipientAddress,
+            hashlock,
+            timelock,
+            formData.inputAmount,
+            formData.outputAmount,
+          );
 
-        console.log("SWAP RES:  ", swapres)
-        
-        // Call resolver to create counter swap on Aptos
-        console.log('🔄 Initiating counter swap on Aptos via resolver...');
-        const counterSwapResult = await resolverService.createAptosCounterSwap(
-          swapres.swapData,
-          swapres.signature,
-          swapres.aptosRecipientAddress,
-          swapres.aptosAmount,
-        );
-        
-        if (counterSwapResult.success) {
-          console.log('✅ Counter swap created on Aptos:', counterSwapResult.txHash);
-          localStorage.setItem(`swap_aptos_counter_${hashlock}`, counterSwapResult.txHash || '');
-        } else {
-          console.warn('⚠️ Counter swap creation failed:', counterSwapResult.error);
-          toast.error(`Swap initiated but counter swap failed: ${counterSwapResult.error}`);
+          updateStepStatus('sign-transaction', 'completed');
+          console.log("SWAP RES:  ", swapres)
+          
+          // Call resolver to create counter swap on Aptos
+          console.log('🔄 Initiating counter swap on Aptos via resolver...');
+          const counterSwapResult = await resolverService.createAptosCounterSwap(
+            swapres.swapData,
+            swapres.signature,
+            swapres.aptosRecipientAddress,
+            swapres.aptosAmount,
+          );
+          
+          if (counterSwapResult.success) {
+            console.log('✅ Counter swap created on Aptos:', counterSwapResult.txHash);
+            localStorage.setItem(`swap_aptos_counter_${hashlock}`, counterSwapResult.txHash || '');
+          } else {
+            console.warn('⚠️ Counter swap creation failed:', counterSwapResult.error);
+            toast.error(`Swap initiated but counter swap failed: ${counterSwapResult.error}`);
+          }
+          
+          // Close waiting screen after successful completion
+          setTimeout(() => {
+            setShowWaitingScreen(false);
+          }, 2000);
+          
+        } catch (error) {
+          // Update the current step with error
+          const currentStep = swapSteps.find(step => step.status === 'in-progress');
+          if (currentStep) {
+            updateStepStatus(currentStep.id, 'error', (error as Error).message);
+          }
+          
+          // Keep waiting screen open for a bit to show error
+          setTimeout(() => {
+            setShowWaitingScreen(false);
+          }, 3000);
+          
+          throw error;
         }
       } else {
         await aptosService.initiateSwap(
@@ -539,6 +758,9 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
           </Typography>
         </Alert>
       </CardContent>
+      
+      {/* Waiting Screen */}
+      <WaitingScreen />
     </Card>
   );
 };

@@ -147,36 +147,37 @@ contract AtomicSwap is ReentrancyGuard, Ownable {
         InitiateSwapMeta calldata metaData,
         bytes calldata signature
     ) external payable nonReentrant {
-        // Verify signature deadline
+        // Verify deadline
         if (block.timestamp > metaData.deadline) {
             revert SignatureExpired();
         }
         
-        // // Verify nonce
-        // if (metaData.nonce != nonces[metaData.initiator]) {
+        // Verify nonce
+        // if (nonces[metaData.initiator] != metaData.nonce) {
         //     revert InvalidNonce();
+        // }
         
-        
-        // Create signature hash
-        bytes32 structHash = keccak256(
-            abi.encode(
-                INITIATE_SWAP_TYPEHASH,
-                metaData.initiator,
-                metaData.hashlock,
-                metaData.timelock,
-                metaData.recipient,
-                metaData.token,
-                metaData.amount,
-                metaData.nonce,
-                metaData.deadline
+        // Create hash for signature verification
+        bytes32 hash = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                DOMAIN_SEPARATOR,
+                keccak256(
+                    abi.encode(
+                        INITIATE_SWAP_TYPEHASH,
+                        metaData.initiator,
+                        metaData.hashlock,
+                        metaData.timelock,
+                        metaData.recipient,
+                        metaData.token,
+                        metaData.amount,
+                        metaData.nonce,
+                        metaData.deadline
+                    )
+                )
             )
         );
         
-        bytes32 hash = keccak256(
-            abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash)
-        );
-        
-        // Check if signature has been used
         if (usedMetaSignatures[hash]) {
             revert SignatureAlreadyUsed();
         }
@@ -192,7 +193,12 @@ contract AtomicSwap is ReentrancyGuard, Ownable {
         nonces[metaData.initiator]++;
         
         // Execute the swap initiation
-        _initiateSwap(metaData.hashlock, metaData.timelock, metaData.recipient, address(0), metaData.amount);
+        _initiateSwap(metaData.hashlock, metaData.timelock, metaData.recipient, metaData.token, metaData.amount);
+        
+        // Transfer tokens from initiator to contract if it's a token swap (not ETH)
+        if (metaData.token != address(0)) {
+            IERC20(metaData.token).transferFrom(metaData.initiator, metaData.recipient, metaData.amount);
+        }
     }
 
     function _initiateSwapHelper(
@@ -263,13 +269,6 @@ contract AtomicSwap is ReentrancyGuard, Ownable {
             }
         }
         
-        // Check balance for token swaps
-        if (token != address(0)) {
-            if (IERC20(token).balanceOf(msg.sender) < amount) {
-                revert InsufficientBalance();
-            }
-        }
-        
         swaps[hashlock] = Swap({
             hashlock: hashlock,
             timelock: timelock,
@@ -320,16 +319,12 @@ contract AtomicSwap is ReentrancyGuard, Ownable {
         swap.completed = true;
         
         // Transfer tokens to recipient
-        if (swap.token == address(0)) {
             // ETH transfer
-            (bool success, ) = swap.recipient.call{value: swap.amount}("");
-            if (!success) {
-                revert TransferFailed();
-            }
-        } else {
-            // ERC-20 transfer
-            IERC20(swap.token).safeTransfer(swap.recipient, swap.amount);
+        (bool success, ) = swap.recipient.call{value: swap.amount}("");
+        if (!success) {
+            revert TransferFailed();
         }
+        
         
         emit SwapCompleted(hashlock, swap.recipient, swap.token, swap.amount, secret);
     }
