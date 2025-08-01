@@ -64,4 +64,12 @@ async function main() {
     });
 }
 
-main()
+//main()
+
+const { Wallet } = require("ethers");
+
+// Generate a random wallet
+const wallet = Wallet.createRandom();
+
+console.log("Address:", wallet.address);
+console.log("Private Key:", wallet.privateKey);

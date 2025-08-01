@@ -205,21 +205,24 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
 
       // Initiate swap on the source chain using resolver address
       if (formData.fromChain === 'ethereum') {
-        await ethereumService.initiateSwap(
+        const swapres = await ethereumService.initiateSwapSignature(
           resolverAddress,
+          formData.recipientAddress,
           hashlock,
           timelock,
-          formData.inputAmount
+          formData.inputAmount,
+          formData.outputAmount,
         );
-        localStorage.setItem(`swap_ethereum_recipient_${hashlock}`, resolverAddress);
+
+        console.log("SWAP RES:  ", swapres)
         
         // Call resolver to create counter swap on Aptos
         console.log('🔄 Initiating counter swap on Aptos via resolver...');
         const counterSwapResult = await resolverService.createAptosCounterSwap(
-          hashlock,
-          recipientAddress, // Use the recipient address for the destination chain
-          timelock,
-          formData.outputAmount
+          swapres.swapData,
+          swapres.signature,
+          swapres.aptosRecipientAddress,
+          swapres.aptosAmount,
         );
         
         if (counterSwapResult.success) {

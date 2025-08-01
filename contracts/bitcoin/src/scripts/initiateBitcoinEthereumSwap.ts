@@ -3,39 +3,30 @@ import axios from 'axios';
 import Wallet from '../wallet';
 import BitcoinClient from '../client';
 import { getHash } from '../utils';
+import config from '../config';
 
-const NETWORK = bitcoin.networks.regtest
+const NETWORK = config.bitcoin.network
 
-const RESOLVER_URL = "http://localhost:3001/"
+const RESOLVER_URL = config.resolverUrl
 
-// User configuration - these would be provided by the user
-const USER_ETHEREUM_ADDRESS = "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65".toLowerCase() // TODO: Replace with actual user address
-const SECRET = "helloasdasdasdasdasdas" // TODO: Generate random secret in production
+const USER_ETHEREUM_ADDRESS = config.ethereum.address
+const SECRET = "helloasdasdasdasdasdasasfasd" // TODO: Generate random secret in production
 const LOCK_TIME = 114
 const BITCOIN_AMOUNT = 100000 // satoshis
 const ETHEREUM_AMOUNT = "1.0" // 1 ETH in wei
 const ETHEREUM_TIMELOCK = 110600 // 1 hour in seconds
 
 async function main() {
-    console.log('🚀 Starting Bitcoin to Ethereum swap...')
-    
     const client = new BitcoinClient(NETWORK)
-
-    // Generate or load user wallet
-    try {
-        Wallet.generateNewWallet(NETWORK, "userWallet")
-    } catch (error) {
-        console.log('Wallet already exists, using existing wallet')
-    }
-
-    const wallet = new Wallet("wallet", NETWORK, client)
+    const wallet = new Wallet(NETWORK, client)
+    console.log('🚀 Starting Bitcoin to Ethereum swap...')    
     console.log(`📱 User Bitcoin address: ${wallet.getAddress()}`)
 
     // Get resolver's public key
     console.log('🔑 Getting resolver public key...')
     let res = await axios.get(RESOLVER_URL + "bitcoin-pubkey")
     const resolverPubKey = Buffer.from(res.data.pubkey, 'hex')
-    console.log(`✅ Resolver public key: ${res.data.pubkey.substring(0, 16)}...`)
+    console.log(`✅ Resolver public key: ${res.data.pubkey}`)
 
     // Deploy Bitcoin HTLC
     console.log('🔒 Deploying Bitcoin HTLC...')

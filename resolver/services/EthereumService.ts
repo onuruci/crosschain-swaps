@@ -95,6 +95,15 @@ class EthereumService {
     return args
 }
 
+  public async initiateSwapSignature(
+    swapData: any,
+    signature: any
+  ): Promise<string> {
+    return this.contract.initiateSwapMeta(swapData, signature, 
+      {value: swapData.amount}
+    );
+  }
+
   public async initiateSwap(
     recipient: string,
     hashlock: string,

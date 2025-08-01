@@ -2,15 +2,15 @@
 export const config = {
   // Ethereum Configuration
   ethereum: {
-    rpcUrl: process.env.REACT_APP_ETHEREUM_RPC_URL || 'https://sepolia.infura.io/v3/YOUR_INFURA_PROJECT_ID',
-    chainId: process.env.REACT_APP_ETHEREUM_CHAIN_ID || '11155111',
-    contractAddress: process.env.REACT_APP_ETHEREUM_CONTRACT_ADDRESS || '0x6b6888b50E24E457faF89D6ed7F9726a177BA741',
-    resolverAddress: process.env.REACT_APP_RESOLVER_ETHEREUM_ADDRESS || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+    rpcUrl: process.env.REACT_APP_ETHEREUM_RPC_URL!,
+    chainId: process.env.REACT_APP_ETHEREUM_CHAIN_ID!,
+    contractAddress: process.env.REACT_APP_ETHEREUM_CONTRACT_ADDRESS!,
+    resolverAddress: process.env.REACT_APP_RESOLVER_ETHEREUM_ADDRESS!, // Hardhat account #1
   },
 
   // Aptos Configuration
   aptos: {
-    nodeUrl: process.env.REACT_APP_APTOS_NODE_URL || 'https://fullnode.testnet.aptoslabs.com',
+    nodeUrl: process.env.REACT_APP_APTOS_NODE_URL!,
     chainId: process.env.REACT_APP_APTOS_CHAIN_ID!,
     contractAddress: process.env.REACT_APP_APTOS_CONTRACT_ADDRESS!,
     moduleName: process.env.REACT_APP_APTOS_MODULE_NAME || 'AtomicSwapV5',
