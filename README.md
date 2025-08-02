@@ -1,4 +1,4 @@
-# Cross-Chain Atomic Swap Bridge
+# Cross-Chain Atomic Swap
 
 A cryptographically secure, intent-based cross-chain atomic swap implementation between **Ethereum**, **Aptos**, and **Bitcoin** using Hash Time Locked Contracts (HTLCs) and meta-transactions.
 
