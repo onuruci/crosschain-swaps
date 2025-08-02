@@ -20,11 +20,9 @@ import {
   Stepper,
   Step,
   StepLabel,
-  StepContent,
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
 } from '@mui/material';
 import {
   SwapHoriz as SwapIcon,
@@ -397,10 +395,6 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
         throw new Error(`No ${formData.fromChain} wallet address available`);
       }
 
-      // Use the recipient address from the form for the destination chain
-      const recipientAddress = formData.recipientAddress.trim();
-
-      // Initiate swap on the source chain using resolver address
       if (formData.fromChain === 'ethereum') {
         // Show waiting screen and reset steps
         setShowWaitingScreen(true);
@@ -588,7 +582,7 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
         <Alert severity="info" sx={{ mb: 3 }}>
           <Typography variant="body2">
             <strong>Resolver Pattern:</strong> Enter the amount you want to send, the amount you expect to receive, and the recipient address on the destination chain. 
-            The swap will be initiated on the source chain with the resolver's address as recipient, and the resolver will create a counter swap on the destination chain.
+            The swap will be signed on the source chain with the resolver's address as recipient, and the resolver will submit the transaction and create a counter swap on the destination chain.
           </Typography>
         </Alert>
 
@@ -821,8 +815,8 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
         {/* Warning */}
         <Alert severity="warning" sx={{ mt: 3 }}>
           <Typography variant="body2">
-            <strong>Important:</strong> This swap will be initiated on {formData.fromChain} with the resolver's address as recipient. 
-            The resolver will automatically create a counter swap on {formData.toChain}. 
+            <strong>Important:</strong> This swap will be signed on {formData.fromChain} with the resolver's address as recipient. 
+            The resolver will automatically submit the transaction and create a counter swap on {formData.toChain}. 
             Keep your secret safe - it's required to complete the swap on {formData.toChain}.
           </Typography>
         </Alert>
