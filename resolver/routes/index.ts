@@ -4,6 +4,7 @@ import bitcoinService from "../services/BitcoinService";
 import ethereumService from "../services/EthereumService";
 import aptosService from "../services/AptosService";
 import { getHash } from "../src/utils";
+import { ethers } from "ethers";
 
 /* GET home page. */
 router.get('/', function(req: any, res: any, next: any) {
@@ -15,7 +16,9 @@ router.get('/', function(req: any, res: any, next: any) {
 router.get('/bitcoin-pubkey', function(req: any, res: any, next: any) {
   res.json({
     "success": true,
-    "pubkey": bitcoinService.publicKey().toString("hex")
+    "pubkey": bitcoinService.publicKey().toString("hex"),
+    "address": bitcoinService.walletAddress(),
+    "eth_address": ethereumService.getAddress()
   });
 });
 
@@ -85,6 +88,7 @@ router.post('/swap/bitcoin-ethereum', async function(req: any, res: any, next: a
       "error": error instanceof Error ? error.message : 'Unknown error'
     });
   }
+  return
 })
 
 router.post('/swap/ethereum-bitcoin', async function(req: any, res: any, next: any) {
@@ -135,8 +139,44 @@ router.post('/complete/bitcoin', async function(req: any, res: any, next: any) {
 })
 
 
-router.post('/complete/ethereum', function(req: any, res: any, next: any) {
+router.post('/complete/bitcoin-ethereum', async function(req: any, res: any, next: any) {
   // completeSwapEthereum(value, hash, receipent)
+  const { hashlock, secret, txid, vout, locktime, amount, senderPubKey } = req.body;
+
+  //const secretBytes32 = ethers.zeroPadValue(secret, 32);
+
+  try {
+    console.log('🔄 Completing swaps on both chains:', {
+      hashlock: hashlock,
+      secret: secret
+    });
+
+    // Complete swap on Ethereum
+    console.log('🔗 Completing Ethereum swap...');
+    const ethereumResult = await ethereumService.completeSwap(hashlock, secret.toString(), true);
+
+
+    const bitcoinResolveResult = await bitcoinService.completeSwap(txid, vout, secret, locktime, amount, senderPubKey)
+
+    console.log(ethereumResult)
+
+    console.log(bitcoinResolveResult)
+    
+    res.json({
+      "success": true,
+      "ethereum": {
+        "txHash": ethereumResult,
+        "success": true
+      },
+    });
+    return
+  } catch (error) {
+    console.error('❌ Error completing swaps:', error);
+    res.status(500).json({
+      "success": false,
+      "error": error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
 
   res.json({
     "success": true,
@@ -276,63 +316,6 @@ router.post('/complete/ethereum-and-aptos', async function(req: any, res: any, n
     });
   } catch (error) {
     console.error('❌ Error completing swaps:', error);
-    res.status(500).json({
-      "success": false,
-      "error": error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-});
-
-// Complete Bitcoin to Ethereum swap using the secret
-router.post('/complete/bitcoin-ethereum', async function(req: any, res: any, next: any) {
-  const { 
-    bitcoinTxid, 
-    bitcoinVout, 
-    bitcoinAmount, 
-    bitcoinLockTime, 
-    bitcoinSenderPubKey, 
-    hashlock, 
-    secret 
-  } = req.body;
-
-  try {
-    console.log('🔄 Completing Bitcoin to Ethereum swap:', {
-      bitcoinTxid,
-      bitcoinVout,
-      hashlock: hashlock.substring(0, 16) + '...',
-      secret: secret.substring(0, 16) + '...'
-    });
-
-    // Complete the Bitcoin swap first (redeem the locked Bitcoin)
-    console.log('🔗 Completing Bitcoin swap...');
-    await bitcoinService.completeSwap(
-      bitcoinTxid,
-      parseInt(bitcoinVout),
-      secret,
-      parseInt(bitcoinLockTime),
-      parseInt(bitcoinAmount),
-      bitcoinSenderPubKey
-    );
-
-    // Complete the Ethereum swap (redeem the locked Ethereum)
-    console.log('🔗 Completing Ethereum swap...');
-    const ethereumResult = await ethereumService.completeSwap(hashlock, secret);
-
-    res.json({
-      "success": true,
-      "bitcoin": {
-        "success": true,
-        "message": "Bitcoin swap completed successfully"
-      },
-      "ethereum": {
-        "txHash": ethereumResult,
-        "success": true
-      },
-      "message": "Both Bitcoin and Ethereum swaps completed successfully"
-    });
-
-  } catch (error) {
-    console.error('❌ Error completing Bitcoin to Ethereum swap:', error);
     res.status(500).json({
       "success": false,
       "error": error instanceof Error ? error.message : 'Unknown error'

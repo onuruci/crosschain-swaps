@@ -4,7 +4,8 @@ import * as bitcoin from 'bitcoinjs-lib';
 
 const config = {
     ethereum: {
-        address: "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65"
+        address: "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
+        rpcUrl: "http://127.0.0.1:8545"
     },
     bitcoin: {
         rpcUrl: 'http://bitcoin:secretpassword@localhost:18443',
