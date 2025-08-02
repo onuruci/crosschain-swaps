@@ -31,7 +31,7 @@ const getEthereumSwaps = async (): Promise<SwapStatus[]> => {
       currentBlock
     );
 
-    console.log(`📡 Found ${events.length} Ethereum SwapInitiated events`);
+    console.log(`📡 Found ${events.length} Ethereum SwapInitiated events: `, events);
 
     for (const event of events) {
       try {
@@ -157,6 +157,7 @@ const getAptosSwaps = async (): Promise<SwapStatus[]> => {
         // Use the Aptos SDK event methods to get events from the contract
         const eventType = `${contractAddress}::${moduleName}::SwapInitiatedEvent` as const;
         
+        console.log('🔍 All Events:', await aptos.event.getEvents());
         // Get events by event type using the SDK
         const events = await aptos.event.getModuleEventsByEventType({
           eventType: eventType,
@@ -165,7 +166,7 @@ const getAptosSwaps = async (): Promise<SwapStatus[]> => {
           }
         });
 
-        console.log(`📡 Found ${events.length} Aptos SwapInitiated events`);
+        console.log(`📡 Found ${events.length} Aptos SwapInitiated events: `, events);
 
         // Process each event to get the hashlock and fetch swap details
         for (const event of events) {

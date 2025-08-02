@@ -44,6 +44,7 @@ export interface WalletConnection {
     connected: boolean;
     address?: string;
     wallet?: any;
+    balance?: string;
   };
 }
 

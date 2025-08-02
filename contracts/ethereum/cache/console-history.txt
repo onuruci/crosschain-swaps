@@ -1,2 +1,0 @@
-cd contracts/ethereum && npx hardhat run scripts/deploy.js --network localhost
-node -e "const ethers = require('ethers'); console.log('ReentrancyGuardReentrantCall selector:', ethers.id('ReentrancyGuardReentrantCall()').slice(0, 10));"

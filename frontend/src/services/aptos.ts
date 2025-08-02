@@ -7,7 +7,7 @@ class AptosService {
   private aptos: Aptos | null = null;
   private accountAddress: AccountAddress | null = null;
   private contractAddress: string = config.aptos.contractAddress;
-  private moduleName: string = 'AtomicSwapV5';
+  private moduleName: string = config.aptos.moduleName;
 
   async connect(): Promise<string> {
     if (!window.aptos) {
@@ -53,6 +53,320 @@ class AptosService {
       r.type.includes('::coin::CoinStore<0x1::aptos_coin::AptosCoin>')
     );
     return coinResource ? (coinResource.data as any).coin.value : '0';
+  }
+
+  // Get FA Coin balance (similar to WETH balance)
+  async getFaCoinBalance(): Promise<string> {
+    if (!this.aptos || !this.accountAddress) throw new Error('Not connected');
+    
+    try {
+      const resources = await this.aptos.getAccountResources({ 
+        accountAddress: this.accountAddress 
+      });
+      
+      // Look for FA coin store
+      const faCoinResource = resources.find((r: any) => 
+        r.type.includes('::primary_fungible_store::FungibleStore') && 
+        r.type.includes('fa_coin')
+      );
+      
+      if (faCoinResource) {
+        return (faCoinResource.data as any).coins.value || '0';
+      }
+      return '0';
+    } catch (error) {
+      console.error('Error getting FA coin balance:', error);
+      return '0';
+    }
+  }
+
+  // Check FA Coin allowance for AtomicSwap contract
+  async getFaCoinAllowance(spender: string): Promise<string> {
+    if (!this.aptos || !this.accountAddress) throw new Error('Not connected');
+    
+    try {
+      const response = await this.aptos.view({
+        payload: {
+          function: `${this.contractAddress}::fa_coin::allowance`,
+          typeArguments: [],
+          functionArguments: [this.accountAddress.toString(), spender]
+        }
+      });
+      
+      return response[0]?.toString() || '0';
+    } catch (error) {
+      console.error('Error getting FA coin allowance:', error);
+      return '0';
+    }
+  }
+
+  // Increase FA coin allowance for AtomicSwap contract (similar to WETH approval)
+  async approveFaCoinForAtomicSwap(amount: string): Promise<any> {
+    if (!this.aptos || !this.accountAddress || !window.aptos) throw new Error('Not connected');
+    
+    console.log('🔐 Increasing FA Coin allowance for AtomicSwap contract:', {
+      amount: amount,
+      spender: this.contractAddress,
+      userAddress: this.accountAddress.toString()
+    });
+    
+    try {
+      // Convert amount to octas (8 decimal places)
+      const amountOctas = Math.floor(parseFloat(amount) * 100000000);
+      
+      const payload = {
+        type: 'entry_function_payload',
+        function: `${this.contractAddress}::fa_coin::increase_allowance`,
+        type_arguments: [],
+        arguments: [this.contractAddress, amountOctas.toString()],
+        max_gas_amount: 2000000,
+        gas_unit_price: 100
+      };
+      
+      console.log('📝 FA Coin increase_allowance payload:', payload);
+      
+      const tx = await window.aptos.signAndSubmitTransaction(payload);
+      console.log('✅ FA Coin approval transaction sent:', tx.hash);
+      
+      // Wait for transaction to be confirmed
+      await this.aptos.waitForTransaction({ transactionHash: tx.hash });
+      
+      return tx;
+    } catch (error) {
+      console.error('❌ FA Coin allowance increase failed:', error);
+      throw error;
+    }
+  }
+
+  // Unwrap FA coins back to APT (similar to WETH to ETH conversion)
+  async unwrapFaCoinToApt(amount: string): Promise<any> {
+    if (!this.aptos || !this.accountAddress || !window.aptos) throw new Error('Not connected');
+    
+    console.log('🔄 Converting FA Coin back to APT:', {
+      amount: amount,
+      userAddress: this.accountAddress.toString()
+    });
+    
+    try {
+      // Convert amount to octas (8 decimal places)
+      const amountOctas = Math.floor(parseFloat(amount) * 100000000);
+      
+      const payload = {
+        type: 'entry_function_payload',
+        function: `${this.contractAddress}::fa_coin::unwrap`,
+        type_arguments: [],
+        arguments: [amountOctas.toString()],
+        max_gas_amount: 2000000,
+        gas_unit_price: 100
+      };
+      
+      console.log('📝 FA Coin unwrap payload:', payload);
+      
+      const tx = await window.aptos.signAndSubmitTransaction(payload);
+      console.log('✅ FA Coin unwrap transaction sent:', tx.hash);
+      
+      // Wait for transaction to be confirmed
+      await this.aptos.waitForTransaction({ transactionHash: tx.hash });
+      console.log('✅ FA Coin unwrap confirmed');
+      
+      return tx;
+    } catch (error) {
+      console.error('❌ FA Coin unwrap failed:', error);
+      throw error;
+    }
+  }
+
+  // Get current nonce for meta transactions
+  async getNonce(userAddress: string): Promise<number> {
+    if (!this.aptos) throw new Error('Not connected');
+    
+    try {
+      const response = await this.aptos.view({
+        payload: {
+          function: `${this.contractAddress}::${this.moduleName}::get_nonce`,
+          typeArguments: [],
+          functionArguments: [userAddress]
+        }
+      });
+      
+      return parseInt(response[0]?.toString() || '0');
+    } catch (error) {
+      console.error('Error getting nonce:', error);
+      return 0;
+    }
+  }
+
+  // Create meta transaction signature for Aptos (similar to Ethereum's initiateSwapSignature)
+  async initiateSwapSignature(
+    recipient: string,
+    hashlock: string,
+    timelock: number,
+    amount: string,
+    deadlineMinutes: number = 60
+  ): Promise<any> {
+    if (!this.aptos || !this.accountAddress || !window.aptos) throw new Error('Not connected');
+    
+    console.log('✍️ Creating Aptos meta transaction signature:', {
+      recipient,
+      hashlock: hashlock.substring(0, 16) + '...',
+      timelock,
+      amount,
+      deadlineMinutes
+    });
+    
+    try {
+      // Get current nonce
+      const nonce = await this.getNonce(this.accountAddress.toString());
+      console.log('📊 Current nonce:', nonce);
+      
+      // Calculate deadline
+      const deadline = Math.floor(Date.now() / 1000) + (deadlineMinutes * 60);
+      
+      // Convert amount to octas
+      const amountOctas = Math.floor(parseFloat(amount) * 100000000);
+      
+      // Convert hashlock to bytes
+      const hashlockBytes = this.hexToBytes(hashlock);
+      
+      // Create meta data structure
+      const metaData = {
+        initiator: this.accountAddress.toString(),
+        hashlock: Array.from(hashlockBytes), // Convert to array for BCS serialization
+        timelock: timelock,
+        recipient: recipient,
+        amount: amountOctas,
+        nonce: nonce,
+        deadline: deadline
+      };
+      
+      console.log('📝 Meta data for signature:', metaData);
+      
+      // Create message for signing (matches Move contract's BCS format)
+      const messageBytes = this.createMetaMessage(metaData);
+      
+      // Convert Uint8Array to hex string for signing
+      const messageHex = '0x' + Array.from(messageBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+      
+      // Sign the message
+      const signature = await window.aptos.signMessage({
+        message: messageHex,
+        nonce: nonce.toString()
+      });
+      
+      console.log('✅ Meta transaction signature created:', {
+        signature: signature.signature.substring(0, 16) + '...',
+        fullMessage: messageHex.substring(0, 32) + '...'
+      });
+      
+      return {
+        swapData: metaData,
+        signature: signature.signature,
+      };
+    } catch (error) {
+      console.error('❌ Meta transaction signature failed:', error);
+      throw error;
+    }
+  }
+
+  // Helper function to create meta message for signature
+  private createMetaMessage(metaData: any): Uint8Array {
+    // This should match the create_meta_message function in the Move contract
+    // The Move contract concatenates BCS-serialized fields
+    
+    // For now, let's use a simpler approach that concatenates the raw bytes
+    // This is not perfect BCS but should work for our use case
+    
+    // Convert initiator address to bytes (remove 0x prefix)
+    const initiatorHex = metaData.initiator.replace('0x', '');
+    const initiatorBytes = this.hexToBytes(initiatorHex);
+    
+    // Hashlock is already in bytes
+    const hashlockBytes = new Uint8Array(metaData.hashlock);
+    
+    // Convert recipient address to bytes (remove 0x prefix)
+    const recipientHex = metaData.recipient.replace('0x', '');
+    const recipientBytes = this.hexToBytes(recipientHex);
+    
+    // Convert numbers to 8-byte little-endian
+    const timelockBytes = new Uint8Array(8);
+    const amountBytes = new Uint8Array(8);
+    const nonceBytes = new Uint8Array(8);
+    const deadlineBytes = new Uint8Array(8);
+    
+    const timelockView = new DataView(timelockBytes.buffer);
+    const amountView = new DataView(amountBytes.buffer);
+    const nonceView = new DataView(nonceBytes.buffer);
+    const deadlineView = new DataView(deadlineBytes.buffer);
+    
+    timelockView.setBigUint64(0, BigInt(metaData.timelock), true);
+    amountView.setBigUint64(0, BigInt(metaData.amount), true);
+    nonceView.setBigUint64(0, BigInt(metaData.nonce), true);
+    deadlineView.setBigUint64(0, BigInt(metaData.deadline), true);
+    
+    // Concatenate all bytes
+    const totalLength = initiatorBytes.length + hashlockBytes.length + 8 + recipientBytes.length + 8 + 8 + 8;
+    const result = new Uint8Array(totalLength);
+    let offset = 0;
+    
+    result.set(initiatorBytes, offset);
+    offset += initiatorBytes.length;
+    
+    result.set(hashlockBytes, offset);
+    offset += hashlockBytes.length;
+    
+    result.set(timelockBytes, offset);
+    offset += 8;
+    
+    result.set(recipientBytes, offset);
+    offset += recipientBytes.length;
+    
+    result.set(amountBytes, offset);
+    offset += 8;
+    
+    result.set(nonceBytes, offset);
+    offset += 8;
+    
+    result.set(deadlineBytes, offset);
+    
+    return result;
+  }
+
+  // Deposit APT to get FA coins (similar to ETH to WETH conversion)
+  async depositAptToFaCoin(amount: string): Promise<any> {
+    if (!this.aptos || !this.accountAddress || !window.aptos) throw new Error('Not connected');
+    
+    console.log('🔄 Converting APT to FA Coin:', {
+      amount: amount,
+      userAddress: this.accountAddress.toString()
+    });
+    
+    try {
+      // Convert amount to octas (8 decimal places)
+      const amountOctas = Math.floor(parseFloat(amount) * 100000000);
+      
+      const payload = {
+        type: 'entry_function_payload',
+        function: `${this.contractAddress}::fa_coin::deposit_apt`,
+        type_arguments: [],
+        arguments: [amountOctas.toString()],
+        max_gas_amount: 2000000,
+        gas_unit_price: 100
+      };
+      
+      console.log('📝 FA Coin deposit payload:', payload);
+      
+      const tx = await window.aptos.signAndSubmitTransaction(payload);
+      console.log('✅ FA Coin deposit transaction sent:', tx.hash);
+      
+      // Wait for transaction to be confirmed
+      await this.aptos.waitForTransaction({ transactionHash: tx.hash });
+      console.log('✅ FA Coin deposit confirmed');
+      
+      return tx;
+    } catch (error) {
+      console.error('❌ FA Coin deposit failed:', error);
+      throw error;
+    }
   }
 
   get aptosInstance(): Aptos | null {
@@ -156,7 +470,13 @@ class AptosService {
         }
       });
       
-      if (!response || !Array.isArray(response) || response.length < 6 || response[0] === '0x0') {
+      if (!response || !Array.isArray(response) || response.length < 6) {
+        return null;
+      }
+
+      // For meta-transactions, initiator might be 0x0, but the swap still exists
+      // Check if any meaningful data exists (recipient, amount, timelock)
+      if (response[1] === '0x0' && response[2] === '0' && response[3] === '0') {
         return null;
       }
 

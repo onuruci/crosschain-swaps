@@ -1,5 +1,5 @@
 [package]
-name = "atomic_swap_new"
+name = "atomic_swap_tuna"
 version = "1.0.0"
 upgrade_policy = "compatible"
 
@@ -7,6 +7,7 @@ upgrade_policy = "compatible"
 AptosFramework = { git = "https://github.com/aptos-labs/aptos-framework.git", subdir = "aptos-framework", rev = "mainnet" }
 
 [addresses]
-AtomicSwapNew = "0x4c44bda28c2389c4d1b2d91cce80a8850a9e4b9a37eef110f0b973286d5e144f"
+FACoin = "0x6e95f71f9b976cf57b1109bdd287146e94e88ed098dae22ad78786f241bc3156"
+AtomicSwapTuna = "0x6e95f71f9b976cf57b1109bdd287146e94e88ed098dae22ad78786f241bc3156"
 
 [dev-dependencies]

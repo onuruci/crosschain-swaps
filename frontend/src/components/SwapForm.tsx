@@ -76,26 +76,54 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
   
   // Waiting screen state
   const [showWaitingScreen, setShowWaitingScreen] = useState(false);
-  const [swapSteps, setSwapSteps] = useState<SwapStep[]>([
-    {
-      id: 'convert-eth',
-      title: 'Convert ETH to WETH',
-      description: 'Converting your ETH to WETH tokens',
-      status: 'pending'
-    },
-    {
-      id: 'approve-weth',
-      title: 'Approve WETH Spending',
-      description: 'Granting permission to spend your WETH',
-      status: 'pending'
-    },
-    {
-      id: 'sign-transaction',
-      title: 'Sign Transaction',
-      description: 'Signing the swap transaction for the resolver',
-      status: 'pending'
+  const [swapSteps, setSwapSteps] = useState<SwapStep[]>([]);
+
+  // Initialize steps based on the chain
+  const initializeSteps = (fromChain: string) => {
+    if (fromChain === 'ethereum') {
+      setSwapSteps([
+        {
+          id: 'convert-eth',
+          title: 'Convert ETH to WETH',
+          description: 'Converting your ETH to WETH tokens',
+          status: 'pending'
+        },
+        {
+          id: 'approve-weth',
+          title: 'Approve WETH Spending',
+          description: 'Granting permission to spend your WETH',
+          status: 'pending'
+        },
+        {
+          id: 'sign-transaction',
+          title: 'Sign Transaction',
+          description: 'Signing the swap transaction for the resolver',
+          status: 'pending'
+        }
+      ]);
+    } else if (fromChain === 'aptos') {
+      setSwapSteps([
+        {
+          id: 'convert-apt',
+          title: 'Convert APT to FA Coin',
+          description: 'Converting your APT to FA Coin tokens',
+          status: 'pending'
+        },
+        {
+          id: 'approve-fa-coin',
+          title: 'Approve FA Coin Spending',
+          description: 'Granting permission to spend your FA Coins',
+          status: 'pending'
+        },
+        {
+          id: 'sign-transaction',
+          title: 'Sign Meta Transaction',
+          description: 'Signing the swap transaction for the resolver',
+          status: 'pending'
+        }
+      ]);
     }
-  ]);
+  };
   
   // Get the dispatch function to invalidate cache
   const dispatch = useDispatch();
@@ -123,9 +151,6 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
     const completedSteps = swapSteps.filter(step => step.status === 'completed').length;
     return (completedSteps / swapSteps.length) * 100;
   };
-
-
-
   // Waiting Screen Component
   const WaitingScreen = () => (
     <Dialog 
@@ -144,7 +169,7 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
           <SwapIcon sx={{ fontSize: 40, mr: 2 }} />
           <Typography variant="h5" fontWeight="bold">
-            Processing Ethereum Swap
+            Processing {formData.fromChain === 'ethereum' ? 'Ethereum' : 'Aptos'} Swap
           </Typography>
         </Box>
         <Typography variant="body2" sx={{ opacity: 0.9 }}>
@@ -379,6 +404,7 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
       if (formData.fromChain === 'ethereum') {
         // Show waiting screen and reset steps
         setShowWaitingScreen(true);
+        initializeSteps('ethereum');
         resetSteps();
         
         try {
@@ -405,11 +431,9 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
           
           const swapres = await ethereumService.initiateSwapSignature(
             resolverAddress,
-            formData.recipientAddress,
             hashlock,
             timelock,
             formData.inputAmount,
-            formData.outputAmount,
           );
 
           updateStepStatus('sign-transaction', 'completed');
@@ -420,8 +444,8 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
           const counterSwapResult = await resolverService.createAptosCounterSwap(
             swapres.swapData,
             swapres.signature,
-            swapres.aptosRecipientAddress,
-            swapres.aptosAmount,
+            formData.recipientAddress,
+            formData.outputAmount,
           );
           
           if (counterSwapResult.success) {
@@ -451,30 +475,77 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
           
           throw error;
         }
-      } else {
-        await aptosService.initiateSwap(
-          resolverAddress,
-          hashlock,
-          timelock,
-          formData.inputAmount
-        );
-        localStorage.setItem(`swap_aptos_recipient_${hashlock}`, resolverAddress);
+      } else if (formData.fromChain === 'aptos') {
+        // Show waiting screen and reset steps
+        setShowWaitingScreen(true);
+        initializeSteps('aptos');
+        resetSteps();
         
-        // Call resolver to create counter swap on Ethereum
-        console.log('🔄 Initiating counter swap on Ethereum via resolver...');
-        const counterSwapResult = await resolverService.createEthereumCounterSwap(
-          hashlock,
-          recipientAddress, // Use the recipient address for the destination chain
-          timelock,
-          formData.outputAmount
-        );
-        
-        if (counterSwapResult.success) {
-          console.log('✅ Counter swap created on Ethereum:', counterSwapResult.txHash);
-          localStorage.setItem(`swap_ethereum_counter_${hashlock}`, counterSwapResult.txHash || '');
-        } else {
-          console.warn('⚠️ Counter swap creation failed:', counterSwapResult.error);
-          toast.error(`Swap initiated but counter swap failed: ${counterSwapResult.error}`);
+        try {
+          // Step 1: Convert APT to FA Coin
+          console.log('🔄 Starting new APT→FA Coin swap flow...');
+          updateStepStatus('convert-apt', 'in-progress');
+          
+          console.log('📥 Converting APT to FA Coin...');
+          await aptosService.depositAptToFaCoin(formData.inputAmount);
+          updateStepStatus('convert-apt', 'completed');
+          toast.success('APT converted to FA Coin successfully');
+          
+          console.log('🔐 Approving FA Coin spending for AtomicSwap contract...');
+          updateStepStatus('approve-fa-coin', 'in-progress');
+          
+          await aptosService.approveFaCoinForAtomicSwap(formData.inputAmount);
+          updateStepStatus('approve-fa-coin', 'completed');
+          toast.success('FA Coin approval granted to AtomicSwap contract');
+          
+          console.log('✍️ Signing meta transaction for resolver...');
+          updateStepStatus('sign-transaction', 'in-progress');
+          
+          const swapres = await aptosService.initiateSwapSignature(
+            resolverAddress,
+            hashlock,
+            timelock,
+            formData.inputAmount,
+          );
+
+          updateStepStatus('sign-transaction', 'completed');
+          console.log("APTOS SWAP RES:  ", swapres);
+          
+          // Call resolver to create counter swap on Ethereum using meta transaction
+          console.log('🔄 Initiating counter swap on Ethereum via resolver...');
+          const counterSwapResult = await resolverService.createEthereumCounterSwap(
+            swapres.swapData,
+            swapres.signature,
+            formData.recipientAddress,
+            formData.outputAmount,
+          );
+          
+          if (counterSwapResult.success) {
+            console.log('✅ Counter swap created on Ethereum:', counterSwapResult.txHash);
+            localStorage.setItem(`swap_ethereum_counter_${hashlock}`, counterSwapResult.txHash || '');
+          } else {
+            console.warn('⚠️ Counter swap creation failed:', counterSwapResult.error);
+            toast.error(`Swap initiated but counter swap failed: ${counterSwapResult.error}`);
+          }
+          
+          // Close waiting screen after successful completion
+          setTimeout(() => {
+            setShowWaitingScreen(false);
+          }, 2000);
+          
+        } catch (error) {
+          // Update the current step with error
+          const currentStep = swapSteps.find(step => step.status === 'in-progress');
+          if (currentStep) {
+            updateStepStatus(currentStep.id, 'error', (error as Error).message);
+          }
+          
+          // Keep waiting screen open for a bit to show error
+          setTimeout(() => {
+            setShowWaitingScreen(false);
+          }, 3000);
+          
+          throw error;
         }
       }
 
@@ -675,8 +746,6 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
             helperText="Time limit for completing the swap"
             sx={{ maxWidth: { sm: '50%' } }}
           />
-
-          {/* Stored Secrets */}
           {secretStore.getSecretCount() > 0 && (
             <Paper elevation={1} sx={{ p: 3, bgcolor: 'grey.50' }}>
               <Typography variant="h6" gutterBottom>

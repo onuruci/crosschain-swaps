@@ -5,7 +5,7 @@ class AptosService {
   private aptos: Aptos | null = null;
   private accountAddress: AccountAddress | null = null;
   private contractAddress: string = config.aptos.contractAddress;
-  private moduleName: string = 'AtomicSwapV5';
+  private moduleName: string = 'AtomicSwapTuna';
 
   constructor() {
     this.initializeAptosClient();
@@ -91,6 +91,60 @@ class AptosService {
     });
     
     console.log('✅ Aptos swap initiated:', pendingTransaction.hash);
+    return pendingTransaction;
+  }
+
+  async initiateSwapSignature(swapData: any, signature: string): Promise<any> {
+    if (!this.aptos || !this.accountAddress) throw new Error('Not connected');
+    
+    // Convert hashlock to byte array for Move contract
+    // swapData.hashlock might already be a Uint8Array from frontend
+    const hashlockBytes = Array.isArray(swapData.hashlock) 
+      ? new Uint8Array(swapData.hashlock) 
+      : this.hexToBytes(swapData.hashlock);
+    
+    const privateKey = new Ed25519PrivateKey(config.aptos.privateKey);
+    const account = Account.fromPrivateKey({ privateKey });
+    console.log(account.accountAddress);
+    
+    // Build the transaction for initiate_swap_meta
+    const transaction = await this.aptos.transaction.build.simple({
+      sender: account.accountAddress,
+      data: {
+        function: `${this.contractAddress}::${this.moduleName}::initiate_swap_meta`,
+        functionArguments: [
+          swapData.initiator,
+          hashlockBytes,
+          swapData.timelock.toString(),
+          swapData.recipient,
+          swapData.amount,
+          swapData.nonce.toString(),
+          swapData.deadline.toString(),
+          this.hexToBytes(signature)
+        ],
+      },
+    });
+    console.log("Meta transaction built successfully");
+    
+    // Simulate the transaction
+    const [simulationResult] = await this.aptos.transaction.simulate.simple({
+      signerPublicKey: account.publicKey,
+      transaction,
+    });
+    
+    // Sign the transaction
+    const senderAuthenticator = this.aptos.transaction.sign({
+      signer: account,
+      transaction,
+    });
+    
+    // Submit the transaction
+    const pendingTransaction = await this.aptos.transaction.submit.simple({
+      transaction,
+      senderAuthenticator,
+    });
+    
+    console.log('✅ Aptos meta swap initiated:', pendingTransaction);
     return pendingTransaction;
   }
 

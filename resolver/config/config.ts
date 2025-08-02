@@ -30,7 +30,7 @@ function getConfig() {
     privateKey: process.env.APTOS_PRIVATE_KEY!,
     accountAddress: process.env.RESOLVER_APTOS_ADDRESS!,
     contractAddress: process.env.APTOS_CONTRACT_ADDRESS!,
-    moduleName: process.env.APTOS_MODULE_NAME || 'AtomicSwapV5',
+    moduleName: process.env.APTOS_MODULE_NAME!,
     apiKey: process.env.APTOS_API_KEY
   },
 

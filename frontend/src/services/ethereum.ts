@@ -119,11 +119,9 @@ class EthereumService {
 
   async initiateSwapSignature(
     recipient: string, 
-    aptosRecipientAddress: string,
     hashlock: string, 
     timelock: number, 
     amount: string,
-    aptosAmount: string,
     deadlineMinutes:number = 60,
     ): Promise<any> {
       if (!this.contract || !this.signer || !this.provider) throw new Error('Not connected');
@@ -182,159 +180,8 @@ class EthereumService {
     return {
         swapData: swapData,
         signature: signature,
-        aptosRecipientAddress: aptosRecipientAddress,
-        aptosAmount: aptosAmount,
     };
 
-  }
-
-
-  async initiateSwap(recipient: string, hashlock: string, timelock: number, amount: string): Promise<any> {
-    if (!this.contract) throw new Error('Not connected');
-    
-    // For cross-chain swaps, the recipient should be an Ethereum address
-    // The contract will validate the address format
-    const amountWei = ethers.parseEther(amount);
-    
-    console.log('🔍 Frontend transaction parameters:', {
-      recipient,
-      hashlock,
-      timelock,
-      amount: amount,
-      amountWei: amountWei.toString(),
-      contractAddress: this.contractAddress
-    });
-    
-    try {
-      const bytes32Hashlock = ethers.zeroPadValue(hashlock, 32);
-      console.log('🔍 Bytes32 hashlock:', bytes32Hashlock);
-      
-      // Clear any stored hashlocks from localStorage to prevent reuse
-      this.clearStoredHashlocks();
-      
-      const hashlockUsed = await this.contract.hashlockUsed(bytes32Hashlock);
-      console.log('🔍 Hashlock used check result:', hashlockUsed);
-      
-      if (hashlockUsed) {
-        console.error('❌ Hashlock is already used! This means either:');
-        console.error('   1. You\'re reusing the same hashlock from a previous test');
-        console.error('   2. There\'s a caching issue in your frontend');
-        console.error('   3. The hashlock generation is not truly random');
-        
-        // Debug the hashlock to see what's stored
-        await this.debugHashlock(hashlock);
-        
-        throw new Error('Hashlock is already used. Please try again with a new swap.');
-      }
-      
-      // Check current balance
-      const signerAddress = await this.signer!.getAddress();
-      const balance = await this.signer!.provider!.getBalance(signerAddress);
-      console.log('🔍 Current balance:', {
-        address: signerAddress,
-        balanceWei: balance.toString(),
-        balanceEth: ethers.formatEther(balance),
-        requiredAmount: amountWei.toString()
-      });
-      
-      if (balance < amountWei) {
-        throw new Error(`Insufficient balance. Have: ${ethers.formatEther(balance)} ETH, Need: ${amount} ETH`);
-      }
-      
-      // Estimate gas first
-      console.log('🔍 Estimating gas...');
-      const gasEstimate = await this.contract.initiateSwap.estimateGas(hashlock, timelock, recipient, amountWei, { 
-        value: amountWei
-      });
-      console.log('✅ Gas estimate:', gasEstimate.toString());
-      
-      // Try with explicit gas limit like the working script
-      console.log('🔍 Sending transaction...');
-      const tx = await this.contract.initiateSwap(hashlock, timelock, recipient, amountWei, { 
-        value: amountWei,
-        gasLimit: gasEstimate // Add 20% buffer
-      });
-      
-      console.log('✅ Transaction sent:', tx.hash);
-      console.log('🔍 Waiting for confirmation...');
-      const receipt = await tx.wait();
-      console.log('✅ Transaction confirmed:', receipt?.blockNumber);
-      return receipt;
-    } catch (error) {
-      console.error('❌ Transaction failed:', error);
-      
-      // Enhanced error logging
-      if (error instanceof Error) {
-        console.error('Error details:', {
-          message: error.message,
-          name: error.name,
-          stack: error.stack
-        });
-      }
-      
-      // Check if it's a user rejection
-      if (error instanceof Error && error.message.includes('user rejected')) {
-        throw new Error('Transaction was rejected by user');
-      }
-      
-      // Check for custom contract errors
-      if (error instanceof Error && error.message.includes('0xf8d10e82')) {
-        console.error('❌ HashlockAlreadyUsed error detected!');
-        console.error('This means the hashlock was already used in a previous transaction.');
-        console.error('Hashlock:', hashlock);
-        
-        // Debug the hashlock to see what's stored
-        await this.debugHashlock(hashlock);
-        
-        throw new Error('Hashlock is already used. Please try again with a new swap.');
-      }
-      if (error instanceof Error && error.message.includes('0x4d2301cc')) {
-        throw new Error('Swap not found with this hashlock.');
-      }
-      if (error instanceof Error && error.message.includes('0x4d2301cc')) {
-        throw new Error('Swap is already completed.');
-      }
-      if (error instanceof Error && error.message.includes('0x4d2301cc')) {
-        throw new Error('Swap is already refunded.');
-      }
-      if (error instanceof Error && error.message.includes('0x4d2301cc')) {
-        throw new Error('Timelock has not expired yet.');
-      }
-      if (error instanceof Error && error.message.includes('0x4d2301cc')) {
-        throw new Error('Timelock has expired.');
-      }
-      if (error instanceof Error && error.message.includes('0x4d2301cc')) {
-        throw new Error('Invalid secret provided.');
-      }
-      if (error instanceof Error && error.message.includes('0x4d2301cc')) {
-        throw new Error('Invalid timelock duration. Must be between 1 hour and 7 days.');
-      }
-      if (error instanceof Error && error.message.includes('0x4d2301cc')) {
-        throw new Error('Invalid recipient address.');
-      }
-      if (error instanceof Error && error.message.includes('0x4d2301cc')) {
-        throw new Error('Invalid amount provided.');
-      }
-      if (error instanceof Error && error.message.includes('0x4d2301cc')) {
-        throw new Error('Insufficient balance for this swap.');
-      }
-      if (error instanceof Error && error.message.includes('0x4d2301cc')) {
-        throw new Error('Transfer failed. Please try again.');
-      }
-      
-      // Check if it's a network error
-      if (error instanceof Error && error.message.includes('Internal JSON-RPC error')) {
-        console.error('🔍 This appears to be a network/RPC error. Checking network connection...');
-        try {
-          const network = await this.provider!.getNetwork();
-          console.log('Current network:', network);
-        } catch (networkError) {
-          console.error('Failed to get network info:', networkError);
-        }
-      }
-      
-      throw error;
-    }
   }
 
   async completeSwap(hashlock: string, secret: string): Promise<any> {
