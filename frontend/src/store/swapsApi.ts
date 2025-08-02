@@ -31,7 +31,7 @@ const getEthereumSwaps = async (): Promise<SwapStatus[]> => {
       currentBlock
     );
 
-    console.log(`📡 Found ${events.length} Ethereum SwapInitiated events`);
+    console.log(`📡 Found ${events.length} Ethereum SwapInitiated events: `, events);
 
     for (const event of events) {
       try {

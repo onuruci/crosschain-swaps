@@ -103,12 +103,6 @@ class AptosService {
       ? new Uint8Array(swapData.hashlock) 
       : this.hexToBytes(swapData.hashlock);
     
-    // Convert amount to number (assuming it's in APT units)
-    const amountNumber = Math.floor(parseFloat(swapData.amount) * 100000000); // Convert to octas (8 decimal places)
-    
-    console.log("\n=== 1. Building meta transaction ===");
-    
-    // Create account from private key
     const privateKey = new Ed25519PrivateKey(config.aptos.privateKey);
     const account = Account.fromPrivateKey({ privateKey });
     console.log(account.accountAddress);
@@ -123,7 +117,7 @@ class AptosService {
           hashlockBytes,
           swapData.timelock.toString(),
           swapData.recipient,
-          amountNumber.toString(),
+          swapData.amount,
           swapData.nonce.toString(),
           swapData.deadline.toString(),
           this.hexToBytes(signature)
