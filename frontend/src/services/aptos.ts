@@ -130,7 +130,6 @@ class AptosService {
       
       // Wait for transaction to be confirmed
       await this.aptos.waitForTransaction({ transactionHash: tx.hash });
-      console.log('✅ FA Coin allowance increased');
       
       return tx;
     } catch (error) {
