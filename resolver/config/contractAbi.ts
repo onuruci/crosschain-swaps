@@ -381,6 +381,11 @@ export const ATOMIC_SWAP_ABI = [
         "internalType": "bytes32",
         "name": "secret",
         "type": "bytes32"
+      },
+      {
+        "internalType": "bool",
+        "name": "useSha256",
+        "type": "bool"
       }
     ],
     "name": "completeSwap",
@@ -422,6 +427,25 @@ export const ATOMIC_SWAP_ABI = [
     "name": "emergencyWithdraw",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "secret",
+        "type": "bytes32"
+      }
+    ],
+    "name": "getHash",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "pure",
     "type": "function"
   },
   {

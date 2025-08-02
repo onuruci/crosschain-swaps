@@ -106,9 +106,9 @@ class EthereumService {
   }
 
   public async initiateSwap(
+    recipient: string,
     hashlock: string,
     timelock: number,
-    recipient: string,
     amount: string
   ): Promise<string> {
     if (!this.contract) {
@@ -148,7 +148,8 @@ class EthereumService {
 
   public async completeSwap(
     hashlock: string,
-    secret: string
+    secret: string,
+    useSha256: boolean = false
   ): Promise<string> {
     try {
       console.log('🔗 Completing Ethereum swap:', {
@@ -156,7 +157,7 @@ class EthereumService {
         secret: secret.substring(0, 16) + '...'
       });
 
-      const tx = await this.contract.completeSwap(hashlock, secret);
+      const tx = await this.contract.completeSwap(hashlock, secret, useSha256);
       const receipt = await tx.wait();
       
       console.log('✅ Ethereum swap completed:', receipt.hash);

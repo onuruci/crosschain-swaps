@@ -289,7 +289,7 @@ contract AtomicSwap is ReentrancyGuard, Ownable {
      * @param hashlock The hash of the secret
      * @param secret The secret that generates the hashlock
      */
-    function completeSwap(bytes32 hashlock, bytes32 secret) external nonReentrant {
+    function completeSwap(bytes32 hashlock, bytes32 secret, bool useSha256) external nonReentrant {
         Swap storage swap = swaps[hashlock];
         
         if (swap.initiator == address(0)) {
@@ -308,8 +308,14 @@ contract AtomicSwap is ReentrancyGuard, Ownable {
             revert TimelockExpired();
         }
         
-        // Verify the secret matches the hashlock (recipient-agnostic)
-        if (keccak256(abi.encodePacked(secret)) != hashlock) {
+        bytes32 computedHash;
+        if (useSha256) {
+            computedHash = sha256(abi.encodePacked(secret));
+        } else {
+            computedHash = keccak256(abi.encodePacked(secret));
+        }
+        
+        if (computedHash != hashlock) {
             revert InvalidSecret();
         }
         

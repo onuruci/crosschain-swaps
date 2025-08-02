@@ -165,10 +165,11 @@ class Wallet {
         psbt.finalizeAllInputs();
         const rawTransaction = psbt.extractTransaction().toHex();
 
-        await this.client.broadcastTransaction(rawTransaction)
+        const txid = await this.client.broadcastTransaction(rawTransaction)
+        return txid
     }
 
-    public async deployHashlockScript(receipentPubKey: any, secretHash: Buffer, lockTime: number, amount: number) {
+    public async deployHashlockScript(receipentPubKey: any, secretHash: string, lockTime: number, amount: number) {
         const network = this.network
 
         const hashlockScript = createHashlockScript(secretHash, lockTime, receipentPubKey, this.getPubKey());
@@ -189,7 +190,7 @@ class Wallet {
             vout: 0,
             address: p2wsh.address || "",
             lockerPubKey: this.getPubKey().toString('hex'),
-            hash: secretHash.toString('hex')
+            hash: secretHash
         }
         
         return res

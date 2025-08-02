@@ -12,7 +12,6 @@ class BitcoinClient {
     }
 
     async rpcCall(method:string, params: any[] = []) {
-        console.log(params)
         try {
           const response = await axios.post(this.rpcUrl, {
             jsonrpc: '2.0',
@@ -44,7 +43,6 @@ class BitcoinClient {
                 "desc": `addr(${address})`
             }]]
             const balance = await this.rpcCall("scantxoutset", params)
-            console.log(balance)
             return balance
         } catch (error: any) {
             console.error('Error getting balance:', error.message);

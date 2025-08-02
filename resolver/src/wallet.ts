@@ -5,11 +5,36 @@ const ecc = require('tiny-secp256k1');
 const fs = require('fs');
 import { ECPairInterface } from 'ecpair';
 import { createHashlockScript, createHashlockScriptP2Address } from './bitcoinScripts';
-import { getHash } from './utils';
 import type { DeployScriptResult } from '../types/global';
 
 
 const ECPair = ECPairFactory(ecc);
+
+async function calculateHashFromSecret(secret: string): Promise<string> {    
+    if (!secret.startsWith('0x')) {
+        throw new Error('Secret must start with 0x');
+    }
+    
+    if (secret.length !== 66) {
+        throw new Error('Secret must be exactly 32 bytes (64 hex chars + 0x)');
+    }
+    
+    const hexString = secret.slice(2);
+    const secretBytes = new Uint8Array(32);
+    
+    for (let i = 0; i < 32; i++) {
+        const byteHex = hexString.substr(i * 2, 2);
+        secretBytes[i] = parseInt(byteHex, 16);
+    }
+    
+    const hashBuffer = await crypto.subtle.digest('SHA-256', secretBytes);
+    
+    const secretHash = '0x' + Array.from(new Uint8Array(hashBuffer))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+    
+    return secretHash;
+}
 
 class Wallet {
     walletFiile: string
@@ -206,12 +231,12 @@ class Wallet {
         const keyPair = this.keypair;
         const bufferPubkey = Buffer.from(keyPair.publicKey);
         const network = this.network
-        const secretHash = getHash(Buffer.from(secret));
+        const secretHash = await calculateHashFromSecret(secret);
 
         console.log('Secret (hex):', secretHash);
-        console.log('Secret Hash (hex):', secretHash.toString('hex'));
+        console.log('Secret Hash (hex):', secretHash);
 
-        const hashlockScript = createHashlockScript(secretHash, lockTime, this.getPubKey(), senderPubKey);
+        const hashlockScript = createHashlockScript(secretHash, lockTime, this.getPubKey(), Buffer.from(senderPubKey, 'hex'));
 
         const fee = 1000;
 
@@ -229,7 +254,9 @@ class Wallet {
         
         const bufferSig = Buffer.from(signature);
         const derSignature = bitcoin.script.signature.encode(bufferSig, hashType);
-        const secretBuffer = Buffer.from(secret);
+        const hex = secret.slice(2);
+        let bytes = new Uint8Array(hex.match(/.{2}/g)?.map(byte => parseInt(byte, 16)) || []);
+        const secretBuffer = Buffer.from(bytes);
         
         if (!bitcoin.script.signature.decode(derSignature)) {
             throw new Error('Failed to create canonical DER signature');
