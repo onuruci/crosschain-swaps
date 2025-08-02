@@ -25,16 +25,16 @@ class ResolverService {
    * Call resolver to create a counter swap on Ethereum
    */
   async createEthereumCounterSwap(
-    hashlock: string,
-    makerAddress: string,
-    timelock: number,
+    swapData: any,
+    signature: string,
+    recipientAddress: string,
     amount: string
   ): Promise<ResolverSwapResponse> {
     try {
       console.log('🔄 Calling resolver for Ethereum counter swap:', {
-        hashlock: hashlock.substring(0, 16) + '...',
-        makerAddress,
-        timelock,
+        swapData: swapData ? 'provided' : 'missing',
+        signature: signature ? signature.substring(0, 16) + '...' : 'missing',
+        recipientAddress,
         amount
       });
 
@@ -44,9 +44,9 @@ class ResolverService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          hashlock,
-          makerAddress,
-          timelock,
+          swapData,
+          signature,
+          recipientAddress,
           amount
         }),
       });
@@ -64,6 +64,8 @@ class ResolverService {
       throw error;
     }
   }
+
+
 
   /**
    * Call resolver to create a counter swap on Aptos

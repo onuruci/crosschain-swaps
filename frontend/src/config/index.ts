@@ -14,9 +14,10 @@ export const config = {
     nodeUrl: process.env.REACT_APP_APTOS_NODE_URL!,
     chainId: process.env.REACT_APP_APTOS_CHAIN_ID!,
     contractAddress: process.env.REACT_APP_APTOS_CONTRACT_ADDRESS!,
-    moduleName: process.env.REACT_APP_APTOS_MODULE_NAME || 'AtomicSwapV5',
+    moduleName: process.env.REACT_APP_APTOS_MODULE_NAME!,
     resolverAddress: process.env.REACT_APP_RESOLVER_APTOS_ADDRESS!, // Example Aptos resolver address
     apiKey: process.env.REACT_APP_APTOS_API_KEY!,
+    faCoinAddress: '0xa89f86c9718dacde29820358fbfefedf099425ba278549396dee6cf5ca30d717::fa_coin',
   },
 
 

@@ -106,9 +106,9 @@ class EthereumService {
   }
 
   public async initiateSwap(
-    recipient: string,
     hashlock: string,
     timelock: number,
+    recipient: string,
     amount: string
   ): Promise<string> {
     if (!this.contract) {
@@ -118,7 +118,7 @@ class EthereumService {
     try {
       console.log('🔗 Initiating Ethereum swap:', {
         recipient,
-        hashlock: "0x"+hashlock,
+        hashlock: hashlock,
         timelock,
         amount
       });
@@ -127,13 +127,13 @@ class EthereumService {
       // The resolver will send ETH from its account but receive WETH from the user
       const amountWei = ethers.parseEther(amount);
       
-      // Use initiateTokenSwap for WETH (the resolver needs to have WETH to send)
-      const tx = await this.contract.initiateTokenSwap(
-        "0x"+hashlock,
+      // Use initiateSwap for ETH (the resolver sends ETH)
+      const tx = await this.contract.initiateSwap(
+        hashlock,
         timelock,
         recipient,
-        config.ethereum.wethAddress, // Use WETH address
-        amountWei, {value: amountWei}
+        amountWei,
+        {value: amountWei}
       );
 
       const receipt = await tx.wait();

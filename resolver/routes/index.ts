@@ -146,30 +146,47 @@ router.post('/complete/ethereum', function(req: any, res: any, next: any) {
 
 // New swap endpoints for creating counter swaps
 router.post('/swap/ethereum', async function(req: any, res: any, next: any) {
-  // Create counter swap on Ethereum
-  // Parameters: hashlock, maker address, timelock
-  const { hashlock, makerAddress, timelock, amount } = req.body;
+  // Create counter swap on Ethereum (for Aptos to Ethereum flow)
+  // Parameters: signature, swapData, recipientAddress, amount
+  console.log("REQ BODY")
+  const { signature, swapData, recipientAddress, amount } = req.body;
+
+  console.log("SIGNATURE")
+  console.log(signature)
+  console.log("SWAP DATA")
+  console.log(swapData)
 
   try {
-    console.log('🔄 Creating counter swap on Ethereum:', {
-      hashlock: hashlock.substring(0, 16) + '...',
-      makerAddress,
-      timelock,
-      amount
-    });
+    // Use signature for Aptos meta transaction
+    const aptosResult = await aptosService.initiateSwapSignature(
+      swapData,
+      signature
+    );
 
-    const txHash = await ethereumService.initiateSwap(
-      makerAddress,
-      hashlock,
-      timelock,
+    // Convert hashlock array to hex string
+    const hashlockHex = '0x' + Array.from(swapData.hashlock).map((b: unknown) => (b as number).toString(16).padStart(2, '0')).join('');
+    console.log("Hashlock hex:", hashlockHex);
+    
+    // Use regular initiateSwap for Ethereum
+    const ethereumResult = await ethereumService.initiateSwap(
+      hashlockHex,
+      swapData.timelock,
+      recipientAddress,
       amount
     );
 
+    console.log("APTOS RESULT")
+    console.log(aptosResult)
+    console.log("ETHEREUM RESULT")
+    console.log(ethereumResult)
+
     res.json({
       "success": true,
-      "txHash": txHash,
+      "aptosTxHash": aptosResult,
+      "ethereumTxHash": ethereumResult,
       "address": ethereumService.getAddress()
     });
+
   } catch (error) {
     console.error('❌ Error creating Ethereum counter swap:', error);
     res.status(500).json({
@@ -178,6 +195,8 @@ router.post('/swap/ethereum', async function(req: any, res: any, next: any) {
     });
   }
 });
+
+
 
 
 router.post('/swap/aptos', async function(req: any, res: any, next: any) {

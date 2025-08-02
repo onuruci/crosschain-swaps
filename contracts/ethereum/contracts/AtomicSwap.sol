@@ -195,7 +195,6 @@ contract AtomicSwap is ReentrancyGuard, Ownable {
         // Execute the swap initiation
         _initiateSwap(metaData.hashlock, metaData.timelock, metaData.recipient, metaData.token, metaData.amount);
         
-        // Transfer tokens from initiator to contract if it's a token swap (not ETH)
         if (metaData.token != address(0)) {
             IERC20(metaData.token).transferFrom(metaData.initiator, metaData.recipient, metaData.amount);
         }
