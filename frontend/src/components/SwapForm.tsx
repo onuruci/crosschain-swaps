@@ -151,34 +151,6 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
     const completedSteps = swapSteps.filter(step => step.status === 'completed').length;
     return (completedSteps / swapSteps.length) * 100;
   };
-
-  // Aptos 3-step flow state
-  const [faCoinBalance, setFaCoinBalance] = useState('0');
-  const [faCoinAllowance, setFaCoinAllowance] = useState('0');
-
-  const refreshFaCoinData = async () => {
-    if (walletConnection.aptos.connected) {
-      try {
-        const [balance, allowance] = await Promise.all([
-          aptosService.getFaCoinBalance(),
-          aptosService.getFaCoinAllowance(config.aptos.contractAddress)
-        ]);
-        setFaCoinBalance(balance);
-        setFaCoinAllowance(allowance);
-      } catch (error) {
-        console.error('Error refreshing FA coin data:', error);
-      }
-    }
-  };
-
-  // Refresh FA coin data when wallet connects
-  useEffect(() => {
-    if (walletConnection.aptos.connected) {
-      refreshFaCoinData();
-    }
-  }, [walletConnection.aptos.connected]);
-
-
   // Waiting Screen Component
   const WaitingScreen = () => (
     <Dialog 
@@ -519,10 +491,6 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
           updateStepStatus('convert-apt', 'completed');
           toast.success('APT converted to FA Coin successfully');
           
-          // Refresh FA coin data
-          await refreshFaCoinData();
-          
-          // Step 2: Approve FA Coin spending for AtomicSwap contract
           console.log('🔐 Approving FA Coin spending for AtomicSwap contract...');
           updateStepStatus('approve-fa-coin', 'in-progress');
           
@@ -530,10 +498,6 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
           updateStepStatus('approve-fa-coin', 'completed');
           toast.success('FA Coin approval granted to AtomicSwap contract');
           
-          // Refresh allowance data
-          await refreshFaCoinData();
-          
-          // Step 3: Sign meta transaction for resolver
           console.log('✍️ Signing meta transaction for resolver...');
           updateStepStatus('sign-transaction', 'in-progress');
           
@@ -782,59 +746,6 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
             helperText="Time limit for completing the swap"
             sx={{ maxWidth: { sm: '50%' } }}
           />
-
-          {/* FA Coin Status (only show when Aptos is selected) */}
-          {formData.fromChain === 'aptos' && walletConnection.aptos.connected && (
-            <Paper elevation={1} sx={{ p: 3, bgcolor: 'grey.50' }}>
-              <Typography variant="h6" gutterBottom>
-                FA Coin Status
-              </Typography>
-              <Alert severity="info" sx={{ mb: 2 }}>
-                <Typography variant="body2">
-                  <strong>Aptos Swap Flow:</strong> First convert APT to FA Coins, then approve spending for the AtomicSwap contract.
-                </Typography>
-              </Alert>
-              
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    APT Balance:
-                  </Typography>
-                  <Typography variant="body2" fontFamily="monospace">
-                    {walletConnection.aptos.balance || '0'} APT
-                  </Typography>
-                </Box>
-                
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    FA Coin Balance:
-                  </Typography>
-                  <Typography variant="body2" fontFamily="monospace">
-                    {faCoinBalance} FA Coins
-                  </Typography>
-                </Box>
-                
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    FA Coin Allowance:
-                  </Typography>
-                  <Typography variant="body2" fontFamily="monospace">
-                    {faCoinAllowance} FA Coins
-                  </Typography>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={refreshFaCoinData}
-                    disabled={!walletConnection.aptos.connected}
-                  >
-                    Refresh
-                  </Button>
-                </Box>
-              </Box>
-            </Paper>
-          )}
-
-          {/* Stored Secrets */}
           {secretStore.getSecretCount() > 0 && (
             <Paper elevation={1} sx={{ p: 3, bgcolor: 'grey.50' }}>
               <Typography variant="h6" gutterBottom>
