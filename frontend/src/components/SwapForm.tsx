@@ -70,6 +70,7 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
     timelock: 3600 // 1 hour default
   });
   const [loading, setLoading] = useState(false);
+  const [completingSwap, setCompletingSwap] = useState<string | null>(null); // Track which swap is being completed
   const [resolverStatus, setResolverStatus] = useState<'checking' | 'healthy' | 'unhealthy'>('checking');
   
   // Waiting screen state
@@ -248,6 +249,58 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
     </Dialog>
   );
 
+  // Complete Swap Loading Dialog Component
+  const CompleteSwapDialog = () => (
+    <Dialog 
+      open={completingSwap !== null} 
+      maxWidth="sm" 
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 3,
+          background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
+          color: 'white'
+        }
+      }}
+    >
+      <DialogTitle sx={{ textAlign: 'center', pb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
+          <CheckIcon sx={{ fontSize: 40, mr: 2 }} />
+          <Typography variant="h5" fontWeight="bold">
+            Completing Swap
+          </Typography>
+        </Box>
+        <Typography variant="body2" sx={{ opacity: 0.9 }}>
+          Please wait while we complete your swap on both chains...
+        </Typography>
+      </DialogTitle>
+      
+      <DialogContent sx={{ pb: 3, textAlign: 'center' }}>
+        <Box sx={{ mb: 3 }}>
+          <LinearProgress 
+            sx={{ 
+              height: 8, 
+              borderRadius: 4,
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              '& .MuiLinearProgress-bar': {
+                backgroundColor: '#ffffff',
+                borderRadius: 4
+              }
+            }} 
+          />
+        </Box>
+        
+        <Typography variant="body1" sx={{ mb: 2 }}>
+          Processing transactions on Ethereum and Aptos...
+        </Typography>
+        
+        <Typography variant="body2" sx={{ opacity: 0.8, fontFamily: 'monospace' }}>
+          Hashlock: {completingSwap?.substring(0, 16)}...
+        </Typography>
+      </DialogContent>
+    </Dialog>
+  );
+
   // Check resolver health on component mount
   useEffect(() => {
     const checkResolverHealth = async () => {
@@ -301,7 +354,7 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
       return;
     }
 
-    setLoading(true);
+    setCompletingSwap(hashlock);
     try {
       console.log('🔄 Completing swap with hashlock:', hashlock.substring(0, 16) + '...');
       
@@ -322,7 +375,7 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
       console.error('Failed to complete swap:', error);
       toast.error('Failed to complete swap: ' + (error as Error).message);
     } finally {
-      setLoading(false);
+      setCompletingSwap(null);
     }
   };
 
@@ -824,6 +877,9 @@ const SwapForm: React.FC<SwapFormProps> = ({ walletConnection, onSwapInitiated }
       
       {/* Waiting Screen */}
       <WaitingScreen />
+      
+      {/* Complete Swap Loading Dialog */}
+      <CompleteSwapDialog />
     </Card>
   );
 };

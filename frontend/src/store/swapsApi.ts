@@ -2,7 +2,6 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { ethereumService } from '../services/ethereum';
 import { aptosService } from '../services/aptos';
 import { SwapStatus } from '../types';
-import { config } from '../config';
 
 // Helper function to get all swaps from Ethereum
 const getEthereumSwaps = async (): Promise<SwapStatus[]> => {
@@ -51,6 +50,7 @@ const getEthereumSwaps = async (): Promise<SwapStatus[]> => {
           });
 
           const [initiator, recipient, , amount, timelock, completed, refunded] = swapData;
+          console.log("swap data:  ", hashlock, completed, refunded);
 
           swaps.push({
             hashlock: hashlock,
@@ -78,13 +78,13 @@ const getEthereumSwaps = async (): Promise<SwapStatus[]> => {
       const completedEvents = await contract.queryFilter(
         contract.filters.SwapCompleted(),
         fromBlock,
-        currentBlock
+        currentBlock + 100  
       );
 
       const refundedEvents = await contract.queryFilter(
         contract.filters.SwapRefunded(),
         fromBlock,
-        currentBlock
+        currentBlock + 100
       );
 
       console.log(`📡 Found ${completedEvents.length} Ethereum SwapCompleted events`);
@@ -92,10 +92,11 @@ const getEthereumSwaps = async (): Promise<SwapStatus[]> => {
 
       // Update swap statuses based on completed/refunded events
       for (const event of [...completedEvents, ...refundedEvents]) {
+        console.log("EVENT:  ", event);
         try {
-          if ('args' in event && event.args && typeof event.args === 'object' && 'hashlock' in event.args) {
-            const hashlock = event.args.hashlock as string;
-            if (!hashlock) continue;
+          if ('args' in event && event.args && Array.isArray(event.args)) {
+            const hashlock = event.args[0]
+            console.log("HASHLOCK:  ", hashlock);
 
             const existingSwap = swaps.find(s => s.hashlock === hashlock);
             if (existingSwap) {
@@ -104,6 +105,7 @@ const getEthereumSwaps = async (): Promise<SwapStatus[]> => {
               const isRefundedEvent = refundedEvents.includes(event);
               
               if (isCompletedEvent) {
+                console.log("COMPLETED EVENT:  ", event);
                 existingSwap.completed = true;
                 console.log(`✅ Updated Ethereum swap ${hashlock.substring(0, 16)}... to completed`);
               } else if (isRefundedEvent) {
@@ -154,11 +156,8 @@ const getAptosSwaps = async (): Promise<SwapStatus[]> => {
       try {
         console.log('📡 Fetching Aptos events using SDK...');
         
-        // Use the Aptos SDK event methods to get events from the contract
         const eventType = `${contractAddress}::${moduleName}::SwapInitiatedEvent` as const;
         
-        console.log('🔍 All Events:', await aptos.event.getEvents());
-        // Get events by event type using the SDK
         const events = await aptos.event.getModuleEventsByEventType({
           eventType: eventType,
           options: {
@@ -171,7 +170,6 @@ const getAptosSwaps = async (): Promise<SwapStatus[]> => {
         // Process each event to get the hashlock and fetch swap details
         for (const event of events) {
           try {
-            // Extract hashlock from event data
             let hashlock: string;
             if (typeof event.data.hashlock === 'string') {
               hashlock = event.data.hashlock;
@@ -225,7 +223,7 @@ const getAptosSwaps = async (): Promise<SwapStatus[]> => {
           const completedEvents = await aptos.event.getModuleEventsByEventType({
             eventType: completedEventType,
             options: {
-              limit: 50
+              limit: 100
             }
           });
 
@@ -233,7 +231,7 @@ const getAptosSwaps = async (): Promise<SwapStatus[]> => {
           const refundedEvents = await aptos.event.getModuleEventsByEventType({
             eventType: refundedEventType,
             options: {
-              limit: 50
+              limit: 100
             }
           });
 

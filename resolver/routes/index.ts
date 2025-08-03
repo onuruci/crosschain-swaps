@@ -209,9 +209,9 @@ router.post('/swap/ethereum', async function(req: any, res: any, next: any) {
     
     // Use regular initiateSwap for Ethereum
     const ethereumResult = await ethereumService.initiateSwap(
+      recipientAddress,
       hashlockHex,
       swapData.timelock,
-      recipientAddress,
       amount
     );
 
