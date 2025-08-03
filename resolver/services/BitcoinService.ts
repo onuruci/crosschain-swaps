@@ -3,7 +3,7 @@ import Client from "../src/client"
 import * as bitcoin from 'bitcoinjs-lib';
 
 
-const NETWORK = bitcoin.networks.regtest
+const NETWORK = bitcoin.networks.testnet
 
 class BitcoinService {
     private wallet: Wallet 

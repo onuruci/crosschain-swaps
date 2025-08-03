@@ -74,8 +74,8 @@ async function generateBlock() {
 
 const USER_ETHEREUM_ADDRESS = config.ethereum.address
 const LOCK_TIME = 114
-const BITCOIN_AMOUNT = 100000000 // satoshis
-const ETHEREUM_AMOUNT = "1.0" // 1 ETH in wei
+const BITCOIN_AMOUNT = 30000 // 0.01 BTC (1,000,000 satoshis) - minimal amount for testing
+const ETHEREUM_AMOUNT = "0.0098" // 0.033333 ETH (equivalent to ~0.01 BTC: 0.01 * 33.33 = 0.033333 ETH)
 const ETHEREUM_TIMELOCK = 110600 // 1 hour in seconds
 
 function formatBytes(bytes: Uint8Array) {
@@ -84,7 +84,7 @@ function formatBytes(bytes: Uint8Array) {
 
 async function logBtcBalance(client:any, address: string, name: string) {
     let walletBalance = await client.getBalance(address)
-    console.log(`💰 ${name} BTC Balance: ${walletBalance.total_amount} sats (${(walletBalance.total_amount / 100000000).toFixed(8)} BTC)`)
+    console.log(`💰 ${name} BTC Balance: ${walletBalance} sats (${(walletBalance / 100000000).toFixed(8)} BTC)`)
 }
 
 async function logEthBalance(provider: any, address: string, name: string) {

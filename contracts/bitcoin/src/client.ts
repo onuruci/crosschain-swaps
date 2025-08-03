@@ -38,51 +38,95 @@ class BitcoinClient {
 
     public async getBalance(address: string) {
         try {
-            let params = ["start", 
-            [{
-                "desc": `addr(${address})`
-            }]]
-            const balance = await this.rpcCall("scantxoutset", params)
-            return balance
+            const response = await axios.get(`${this.rpcUrl}/address/${address}/utxo`);
+            
+            if (response.status !== 200) {
+                throw new Error(`API Error: ${response.status} ${response.statusText}`);
+            }
+            
+            const utxos = response.data;
+            
+            // Sum all UTXO values to get total balance
+            const totalBalance = utxos.reduce((sum: number, utxo: any) => {
+                return sum + utxo.value;
+            }, 0);
+            
+            console.log(`Balance for ${address}: ${totalBalance} satoshis`);
+            return totalBalance;
         } catch (error: any) {
             console.error('Error getting balance:', error.message);
+            throw error;
         }
     }
 
     public async getUTXOs(address: string) {
-        try {
-            let params = ["start", 
-            [{
-                "desc": `addr(${address})`
-            }]]
-            const utxos = await this.rpcCall("scantxoutset", params)
-            return utxos.unspents.map((utxo: any): any => ({
-                txid: utxo.txid,
-                vout: utxo.vout,
-                value: Math.round(utxo.amount * 100000000), // Convert to satoshis
-                scriptPubKey: utxo.scriptPubKey
-              }));
-        } catch (error: any) {
-            console.error('Error getting balance:', error.message);
-        }
-    }
+      try {
+          const response = await axios.get(`${this.rpcUrl}/address/${address}/utxo`);
+          
+          if (response.status !== 200) {
+              throw new Error(`API Error: ${response.status} ${response.statusText}`);
+          }
+          
+          const utxos = response.data;
+          
+          // Return UTXOs in the expected format
+          return utxos.map((utxo: any): any => ({
+              txid: utxo.txid,
+              vout: utxo.vout,
+              value: utxo.value, // Already in satoshis from the API
+              scriptPubKey: utxo.scriptPubKey || '',
+              status: utxo.status
+          }));
+      } catch (error: any) {
+          console.error('Error getting UTXOs:', error.message);
+          throw error;
+      }
+  }
 
     public async getRawTransaction(txid: string) {
-        const rawTx = await this.rpcCall('getrawtransaction', [txid]);
-        return rawTx
+        try {
+            const response = await axios.get(`${this.rpcUrl}/tx/${txid}/hex`);
+            
+            if (response.status !== 200) {
+                throw new Error(`API Error: ${response.status} ${response.statusText}`);
+            }
+            
+            return response.data;
+        } catch (error: any) {
+            console.error('Error getting raw transaction:', error.message);
+            throw error;
+        }
     }
 
     async broadcastTransaction(rawTransaction: string): Promise<string> {
         try {
-          const txid = await this.rpcCall('sendrawtransaction', [rawTransaction]);
-          console.log('Transaction broadcasted successfully!');
-          console.log('TXID:', txid);
+          const response = await axios.post(`${this.rpcUrl}/tx`, rawTransaction, {
+            headers: {
+              'Content-Type': 'text/plain'
+            }
+          });
+          
+          if (response.status !== 200) {
+            throw new Error(`API Error: ${response.status} ${response.statusText}`);
+          }
+          
+          const txid = response.data;
+          console.log('✅ Transaction broadcasted successfully!');
+          console.log('🆔 TXID:', txid);
+          
+          // Call the transaction URL to view details
+          const txUrl = `https://mempool.space/testnet4/tx/${txid}`;
+          console.log('\n🔗 Transaction Explorer:');
+          console.log(`   ${txUrl}\n`);
+          
           return txid;
         } catch (error: any) {
           console.error('Failed to broadcast transaction:', error.message);
           throw error;
         }
       }
+
+
     
 }
 

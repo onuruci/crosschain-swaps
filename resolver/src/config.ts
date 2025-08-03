@@ -8,10 +8,9 @@ const config = {
         rpcUrl: "http://127.0.0.1:8545"
     },
     bitcoin: {
-        //rpcUrl: 'http://bitcoin:secretpassword@localhost:18443',
         rpcUrl: "https://mempool.space/testnet4/api",
-        address: "n1Sx3V9R7PnFgNAZ9GdwuWe6Nni6Z4ue5s",
-        privateKey: "cVxQKBCYKDNfev1Q7uS994tb2SecqaV5xJXWcHXtosn8WXAsHDAr",
+        address: "mm2v2g3j6hdbFqDccM7hvZe9PUjwFaAxvF",
+        privateKey: "cTx8eHLFKqCtqUuhGwFAiGZbCdQSUxx3Lu27TKsCdTzhwTTczXv3",
         network: bitcoin.networks.testnet
     },
     resolverUrl: "http://localhost:3001/"
